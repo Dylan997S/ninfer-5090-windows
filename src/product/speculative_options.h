@@ -13,6 +13,7 @@ namespace ninfer::product {
     if (value == "mtp") { return SpeculativeBackend::Mtp; }
     if (value == "dflash") { return SpeculativeBackend::DFlash; }
     if (value == "dflash2") { return SpeculativeBackend::DFlash2; }
+    if (value == "dspine") { return SpeculativeBackend::DSpine; }
     throw std::invalid_argument("invalid speculative backend: " + std::string(value));
 }
 
@@ -26,12 +27,21 @@ namespace ninfer::product {
         return "dflash";
     case SpeculativeBackend::DFlash2:
         return "dflash2";
+    case SpeculativeBackend::DSpine:
+        return "dspine";
     }
     return "unknown";
 }
 
 inline void validate_speculative_cli_options(const SpeculativeOptions& options) {
     switch (options.backend) {
+    case SpeculativeBackend::DSpine:
+        if (options.draft_tokens == 0 || options.draft_tokens > 15)
+            throw std::invalid_argument(
+                "--spec dspine requires --draft-tokens in [1,15]");
+        if (options.proposal_head != ProposalHead::Full)
+            throw std::invalid_argument("--spec dspine requires --proposal-head full");
+        return;
     case SpeculativeBackend::None:
         if (options.draft_tokens != 0 || options.proposal_head != ProposalHead::Full) {
             throw std::invalid_argument("nonzero drafts or an optimized proposal head require an "

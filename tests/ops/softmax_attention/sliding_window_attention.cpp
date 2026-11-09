@@ -115,12 +115,12 @@ struct Cache {
     }
 };
 
-// One naive FP64 oracle for both cache windows, every route, and every execution mode. The
+// One naive FP64 oracle for all cache windows, routes, and execution modes. The
 // cached interval and |key_position-query_position| predicate come from the public formula.
 std::vector<double> oracle(const Cache& cache, int width, int batch, const std::vector<float>& q,
                            const std::vector<float>& qk, const std::vector<float>& qv,
                            const std::vector<int>& positions, const std::vector<int>& valid,
-                           const std::vector<int>& lanes) {
+                           const std::vector<int>& lanes, bool causal) {
     std::vector<double> out(static_cast<std::size_t>(D) * Hq * width * batch, 0.0);
     parallel_rows(
         batch, std::uint64_t(batch) * width * cache.window * D * Hq, [&](int first, int last) {
@@ -166,7 +166,8 @@ std::vector<double> oracle(const Cache& cache, int width, int batch, const std::
                             const int kp = key < context_count
                                                ? start + key
                                                : positions[b * width + key - context_count];
-                            return std::abs(static_cast<std::int64_t>(kp) - p) < cache.window;
+                            return std::abs(static_cast<std::int64_t>(kp) - p) < cache.window &&
+                                   (!causal || kp <= p);
                         },
                         [&](int d, int h, int, double value) {
                             out[((static_cast<std::size_t>(b) * width + token) * Hq + h) * D + d] =
@@ -181,7 +182,7 @@ std::vector<double> oracle(const Cache& cache, int width, int batch, const std::
 enum class Prefix { Full, Mixed, Zero };
 
 int run_case(Cache& cache, int width, int batch, int base_context, int envelope_max, Prefix prefix,
-             bool replay) {
+             bool replay, bool causal) {
     const std::size_t q_count  = static_cast<std::size_t>(D) * Hq * width * batch;
     const std::size_t kv_count = static_cast<std::size_t>(D) * Hkv * width * batch;
     std::vector<float> q(q_count), qk(kv_count), qv(kv_count);
@@ -233,7 +234,8 @@ int run_case(Cache& cache, int width, int batch, int base_context, int envelope_
     DeviceContext device;
     const auto launch = [&] {
         ops::sliding_window_attention(tq, tk, tv, tp, tvalid, Geometry, cache.window, Scale,
-                                      context, envelope, workspace, to, device.execution_view());
+                                      context, envelope, workspace, to, device.execution_view(),
+                                      causal);
     };
     DecodeGraphDefinition definition;
     DecodeGraphExecutable graph;
@@ -285,7 +287,8 @@ int run_case(Cache& cache, int width, int batch, int base_context, int envelope_
         else
             launch();
         cuda_synchronize(device.stream());
-        const auto expected = oracle(cache, width, batch, q, qk, value, positions, valid, lanes);
+        const auto expected =
+            oracle(cache, width, batch, q, qk, value, positions, valid, lanes, causal);
         const std::string label = "SWA window=" + std::to_string(cache.window) +
                                   " W=" + std::to_string(width) + " B=" + std::to_string(batch) +
                                   " L=" + std::to_string(base_context) +
@@ -342,14 +345,15 @@ int main(int argc, char** argv) {
         int width, batch, context, envelope;
         Prefix prefix;
         bool graph;
+        bool causal;
         bool operator==(const Case&) const = default;
     };
 
     std::map<std::pair<int, bool>, std::vector<Case>> groups;
     const auto add = [&](Recipe recipe, int width, int batch, int context, int envelope,
-                         Prefix prefix, bool graph) {
+                         Prefix prefix, bool graph, bool causal = false) {
         auto& cases = groups[{recipe.window, recipe.boundary}];
-        const Case c{width, batch, context, envelope, prefix, graph};
+        const Case c{width, batch, context, envelope, prefix, graph, causal};
         // Several boundary tables intersect at the same complete input recipe.
         if (std::find(cases.begin(), cases.end(), c) == cases.end()) cases.push_back(c);
     };
@@ -398,23 +402,26 @@ int main(int argc, char** argv) {
         const Recipe edge{4096, true};
         add(edge, 2, 1, 4096, 4096, Prefix::Full, true);
     }
+    add(Recipe{8192}, 16, 1, 0, 0, Prefix::Full, false, true);
+    add(Recipe{8192, true}, 3, 2, 8192, 8192, Prefix::Mixed, true, true);
     for (const auto& [recipe, cases] : groups) {
         std::vector<OpCase> catalogue;
         for (auto c : cases)
-            catalogue.push_back(
-                {"swa/window" + std::to_string(recipe.first) +
-                     (recipe.second ? "/boundary" : "/random") + "/w" + std::to_string(c.width) +
-                     "/b" + std::to_string(c.batch) + "/context" + std::to_string(c.context) +
-                     "/bound" + std::to_string(c.envelope) + "/prefix" +
-                     std::to_string(int(c.prefix)) + (c.graph ? "/graph" : "/eager"),
-                 {{"execution", c.graph ? "graph" : "eager"}}});
+            catalogue.push_back({"swa/window" + std::to_string(recipe.first) +
+                                     (recipe.second ? "/boundary" : "/random") + "/w" +
+                                     std::to_string(c.width) + "/b" + std::to_string(c.batch) +
+                                     "/context" + std::to_string(c.context) + "/bound" +
+                                     std::to_string(c.envelope) + "/prefix" +
+                                     std::to_string(int(c.prefix)) +
+                                     (c.graph ? "/graph" : "/eager") + (c.causal ? "/causal" : ""),
+                                 {{"execution", c.graph ? "graph" : "eager"}}});
         suite.add(std::move(catalogue), [=](auto selected) {
             Cache cache(recipe.first, recipe.second);
             int failures = 0;
             for (auto i : selected) {
                 auto c = cases[i];
-                failures +=
-                    run_case(cache, c.width, c.batch, c.context, c.envelope, c.prefix, c.graph);
+                failures += run_case(cache, c.width, c.batch, c.context, c.envelope, c.prefix,
+                                     c.graph, c.causal);
             }
             return failures + cache.verify();
         });

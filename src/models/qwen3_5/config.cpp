@@ -208,7 +208,7 @@ qwen::VisionConfig vision(const Json& value) {
     return out;
 }
 
-DraftConfig draft(const Json& value, const TextConfig& target, bool dflash2) {
+DraftConfig draft(const Json& value, const TextConfig& target, bool dflash2, bool dspine) {
     require_members(value,
                     {"architectures", "model_type", "intermediate_size", "num_attention_heads",
                      "num_key_value_heads", "head_dim", "num_hidden_layers",
@@ -220,6 +220,7 @@ DraftConfig draft(const Json& value, const TextConfig& target, bool dflash2) {
         throw ArtifactError("draft architecture/model_type mismatch");
     }
     DraftConfig out;
+    out.dspine    = dspine;
     out.attention = attention(value);
     if (out.attention.head_dim % 2) { throw ArtifactError("draft head dimension must be even"); }
     out.intermediate_size       = dimension(value, "intermediate_size");
@@ -252,6 +253,19 @@ DraftConfig draft(const Json& value, const TextConfig& target, bool dflash2) {
                         {"target_layer_ids", "mask_token_id", "conv_kernel_size", "conv_group_size",
                          "selector_rank", "selector_top_k"},
                         {}, "DFlash2 config");
+    } else if (dspine) {
+        require_members(config,
+                        {"target_layer_ids", "mask_token_id", "block_size", "code_size", "rank",
+                         "head_topk", "causal"},
+                        {}, "DSpine config");
+        if (config.at("block_size") != 16 || config.at("code_size") != 1024 ||
+            config.at("rank") != 512 || config.at("head_topk") != 16 ||
+            config.at("causal") != true || target.hidden_size != 5120 ||
+            out.num_hidden_layers != 5 || out.sliding_window != 8192 ||
+            out.attention.head_dim != 128 || out.attention.num_attention_heads != 32 ||
+            out.attention.num_key_value_heads != 8 || out.local_layer_count() != 5 ||
+            out.rms_norm_eps != 1e-6f)
+            throw ArtifactError("unsupported DSpine code bridge geometry");
     } else {
         require_members(config, {"target_layer_ids", "mask_token_id"}, {}, "DFlash config");
     }
@@ -321,10 +335,10 @@ Config parse_config(const artifact::Reader& reader, const LoadOptions& options) 
                 throw ArtifactError("MTP architecture differs from target mathematics");
             }
         }
-        if (options.speculative == SpeculativeBackend::DFlash ||
-            options.speculative == SpeculativeBackend::DFlash2) {
-            out.draft = draft(companion(reader, options.speculative_component()).config,
-                              out.text, options.speculative == SpeculativeBackend::DFlash2);
+        if (options.masked_draft()) {
+            out.draft = draft(companion(reader, options.speculative_component()).config, out.text,
+                              options.speculative == SpeculativeBackend::DFlash2,
+                              options.speculative == SpeculativeBackend::DSpine);
         }
         return out;
     } catch (const std::exception& error) {

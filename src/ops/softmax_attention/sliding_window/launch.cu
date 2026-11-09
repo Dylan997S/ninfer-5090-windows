@@ -53,9 +53,9 @@ void launch_sliding_window_attention(const Tensor& q, const Tensor& query_k, con
                                      float scale, const ConstCyclicKVCacheLayerView& context,
                                      const SlidingWindowAttentionPlan& plan, Tensor& partial_acc,
                                      Tensor& partial_m, Tensor& partial_l, Tensor& out,
-                                     cudaStream_t stream) {
+                                     cudaStream_t stream, bool causal) {
     const bool direct = plan.route == SlidingWindowAttentionRoute::Direct;
-    if ((plan.window != 2048 && plan.window != 4096) ||
+    if (!supported_sliding_window(static_cast<std::uint32_t>(plan.window)) ||
         context.capacity != static_cast<std::uint32_t>(plan.window) || plan.key_block != 32 ||
         plan.reduce_warps != (plan.window == 2048 ? 4 : 1) || plan.split_capacity < 1 ||
         plan.split_capacity > kSlidingWindowMaxSplits || (direct && plan.split_capacity != 1))
@@ -81,9 +81,9 @@ void launch_sliding_window_attention(const Tensor& q, const Tensor& query_k, con
                     common::operand::state_field_base<const __nv_bfloat16>(context.k),
                     common::operand::state_field_base<const __half>(context.v),
                     static_cast<int>(context.padded_capacity), plan.window - 1, plan.max_context,
-                    Direct ? 1 : plan.split_capacity, scale, static_cast<float*>(partial_acc.data),
-                    static_cast<float*>(partial_m.data), static_cast<float*>(partial_l.data),
-                    static_cast<__nv_bfloat16*>(out.data));
+                    causal, Direct ? 1 : plan.split_capacity, scale,
+                    static_cast<float*>(partial_acc.data), static_cast<float*>(partial_m.data),
+                    static_cast<float*>(partial_l.data), static_cast<__nv_bfloat16*>(out.data));
             CUDA_CHECK(cudaGetLastError());
         };
         if (direct) {

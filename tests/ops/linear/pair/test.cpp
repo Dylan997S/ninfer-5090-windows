@@ -39,6 +39,7 @@ struct ShapeCase {
     std::int32_t second_row;
     std::span<const std::int32_t> route_starts;
     std::span<const std::int32_t> route_interiors;
+    QType qtype = QType::Q8_G32_FP16;
 };
 
 struct Invocation {
@@ -97,17 +98,22 @@ PairFixture make_pair_fixture(const ShapeCase& shape) {
         shape.second_row > shape.parent_rows - kOutputRows) {
         throw std::invalid_argument("linear_pair test: row view is outside its parent");
     }
-    const quantized_weight::PatternedWeightOptions options{
-        quantized_weight::RowSplitScalePattern::Tiny};
+    quantized_weight::PatternedWeightOptions options{
+        shape.qtype == QType::Q8_G32_FP16 ? quantized_weight::RowSplitScalePattern::Tiny :
+                                          quantized_weight::RowSplitScalePattern::Unit};
+    if (shape.qtype == QType::NVFP4) {
+        options.weight_scale_divisor = 128.0F;
+        options.input_scale_divisor = 1.0F;
+    }
     PairFixture fixture{
         shape.parents == WeightParents::Shared,
-        quantized_weight::make_patterned_weight(QType::Q8_G32_FP16, shape.parent_rows, shape.k,
+        quantized_weight::make_patterned_weight(shape.qtype, shape.parent_rows, shape.k,
                                                 shape.seed, options),
         {},
     };
     if (!fixture.shared_payload) {
         fixture.second_storage = quantized_weight::make_patterned_weight(
-            QType::Q8_G32_FP16, shape.parent_rows, shape.k, shape.seed + 1U, options);
+            shape.qtype, shape.parent_rows, shape.k, shape.seed + 1U, options);
     }
     return fixture;
 }
@@ -255,7 +261,10 @@ int run_q8_a16_shape(std::string_view label, const ShapeCase& shape,
         const std::array shape{static_cast<std::uint64_t>(source.weight.n),
                                static_cast<std::uint64_t>(source.weight.k)};
         return WeightParent{weight_geometry(source.weight.qtype, source.weight.layout, shape),
-                            payload.device, static_cast<const std::byte*>(payload.data)};
+                            payload.device, static_cast<const std::byte*>(payload.data),
+                            source.weight.qtype == QType::NVFP4
+                                ? std::span(&source.weight.weight_scale_divisor, 1)
+                                : std::span<const float>{}};
     };
     const auto first_parent  = parent(fixture.first_storage, first_device_weight.span());
     const auto second_parent = parent(second_storage, second_payload);
@@ -282,7 +291,7 @@ int run_q8_a16_shape(std::string_view label, const ShapeCase& shape,
         Tensor second(second_output.span(), DType::BF16, {kOutputRows, t});
 
         const auto& case_label = call.id;
-        const auto profile     = ops::LinearProfile{QType::Q8_G32_FP16, kOutputRows, shape.k};
+        const auto profile     = ops::LinearProfile{shape.qtype, kOutputRows, shape.k};
         if (ops::linear_pair_workspace_capacity_bytes(first_weight, second_weight, t, t) != 0 ||
             ops::linear_pair_workspace_capacity_bytes(profile, profile, t, t) != 0)
             throw std::runtime_error("LinearPair must not require scratch");
@@ -468,6 +477,19 @@ void add_shape(linear_suite::Suite& suite, const ShapeCase& shape) {
 
 int main(int argc, char** argv) {
     linear_suite::Suite suite;
+    for (bool shared : {false, true})
+        for (int t : {1, 2, 8, 9, 16, 17, 32, 33, 64, 65, 128, 129, 1024})
+            suite.add(linear_suite::make_case("nvfp4", 1024, 5120, t, ops::LinearPolicy::A16Only,
+                          linear_suite::Execution::Graph, shared ? "parent-views" : "independent"),
+                      [=] {
+                          const ShapeCase shape{.k = 5120, .seed = 443U,
+                              .parents = shared ? WeightParents::Shared : WeightParents::Separate,
+                              .parent_rows = shared ? 6144 : 1024,
+                              .first_row = shared ? 4096 : 0, .second_row = shared ? 5120 : 0,
+                              .qtype = QType::NVFP4};
+                          const std::array calls{Invocation{t, true, "NVFP4 pair"}};
+                          return run_q8_a16_shape("NVFP4 pair", shape, calls, !shared);
+                      });
     for (int n : {4096, 8192})
         for (int t : {1, 4, 8, 33, 64, 4096})
             suite.add(linear_suite::make_case("bf16", n, 128, t, ops::LinearPolicy::A16Only,

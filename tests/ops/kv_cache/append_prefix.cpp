@@ -37,6 +37,7 @@ constexpr int kLogicalPages  = 3;
 constexpr int kPhysicalPages = 6;
 constexpr int kDFlash2Window = 2048;
 constexpr int kDFlashWindow  = 4096;
+constexpr int kDSpineWindow  = 8192;
 
 std::uint16_t bf16_bits_to_f16_bits(std::uint16_t bits) {
     return f32_to_f16_bits(bf16_to_f32(bits));
@@ -771,6 +772,9 @@ void add_prefix_append_cases(ninfer::test::OpSuite& suite) {
         kDFlash2Window, kDFlash2Window);
     suite.add("append/cyclic/graph/capacity4096/t16",
               [] { return cyclic_graph_replay_case(kDFlashWindow, 16); },
+              {{"execution", "graph"}, {"format", "bf16"}});
+    suite.add("append/cyclic/graph/capacity8192/t16",
+              [] { return cyclic_graph_replay_case(kDSpineWindow, 16); },
               {{"format", "bf16"}, {"execution", "graph"}});
     suite.add("append/cyclic/graph/capacity2048/t8",
               [] { return cyclic_graph_replay_case(kDFlash2Window, 8); },

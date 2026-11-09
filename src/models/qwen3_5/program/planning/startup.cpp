@@ -379,6 +379,7 @@ WorkspaceSpec build_workspace_plan(const SequencePlanImpl& plan) {
                 WorkspaceLayoutBuilder layout;
                 const std::int32_t tokens = width * batch;
                 matrix(layout, DType::BF16, dimension(config.hidden_size), tokens);
+                if (draft->dspine) (void)workspace::dspine_roots(layout, tokens);
                 if (draft->dflash2.has_value()) {
                     const auto prepare = [&] {
                         (void)workspace::dflash2_branch(layout, config, *draft, width, batch);
@@ -469,6 +470,29 @@ WorkspaceSpec build_workspace_plan(const SequencePlanImpl& plan) {
                     for (const auto& block : profile.draft->layers) {
                         add_scratch(layout, block.mlp.down, tokens, tokens);
                     }
+                }
+                if (draft->dspine) {
+                    {
+                        auto bridge = layout.scope();
+                        (void)workspace::dspine_bridge(layout, tokens);
+                    }
+                    const int rows = drafts * batch;
+                    matrix(layout, DType::BF16, 5120, rows);
+                    matrix(layout, DType::I32, 16, rows);
+                    {
+                        auto topk = layout.scope();
+                        matrix(layout, DType::FP32, 16, rows);
+                        const auto& head = profile.draft->output_head;
+                        scratch(layout, ops::linear_topk_workspace_capacity_bytes(
+                                            head.qtype, head.n, head.k, rows, rows));
+                    }
+                    matrix(layout, DType::BF16, 5120, 16 * rows);
+                    {
+                        auto refine = layout.scope();
+                        (void)workspace::dspine_refine(layout, 16 * rows);
+                    }
+                    matrix(layout, DType::FP32, 256, rows);
+                    return finish(layout);
                 }
                 matrix(layout, DType::BF16, dimension(config.hidden_size), drafts * batch);
                 matrix(layout, DType::BF16, dimension(config.hidden_size), drafts * batch);
@@ -561,6 +585,7 @@ void validate_target_options(const execution::ModelProfile& profile, DeviceConte
         break;
     case SpeculativeBackend::DFlash:
     case SpeculativeBackend::DFlash2:
+    case SpeculativeBackend::DSpine:
         if (!profile.draft || (options.speculative.backend == SpeculativeBackend::DFlash2) !=
                                   profile.config.draft->dflash2.has_value()) {
             throw std::invalid_argument(

@@ -75,12 +75,12 @@ void kv_cache_append_prefix(const Tensor& k, const Tensor& v, const Tensor& posi
  * k/v, positions, counts, and their storage-conversion and mutation contracts match the paged
  * overload. The cache State fields select destination records through device I64 byte offsets
  * [B]. Each field is dense [128,padded_capacity,8] within its record and 16-byte aligned. D=128,
- * Hkv=8 and capacity 2048 or 4096. Absolute position p maps to slot p mod capacity. For a nonempty
- * prefix, the caller guarantees that the row's existing live interval ends immediately before
- * positions[0,b]. Advancing it by counts[b] makes every overwritten old slot dead, and one row
- * commits at most the ring capacity. A zero count reads no positions or K/V and changes no cache
- * bytes. Physical T is independent of the committed prefix length. Consequently, no two live writes
- * race for one physical slot. The Op does not own or publish the state frontier.
+ * Hkv=8 and capacity 2048, 4096 or 8192. Absolute position p maps to slot p mod capacity. For a
+ * nonempty prefix, the caller guarantees that the row's existing live interval ends immediately
+ * before positions[0,b]. Advancing it by counts[b] makes every overwritten old slot dead, and one
+ * row commits at most the ring capacity. A zero count reads no positions or K/V and changes no
+ * cache bytes. Physical T is independent of the committed prefix length. Consequently, no two live
+ * writes race for one physical slot. The Op does not own or publish the state frontier.
  */
 void kv_cache_append_prefix(const Tensor& k, const Tensor& v, const Tensor& positions,
                             const Tensor& counts, KVCacheAppendPrefixExecutionEnvelope envelope,

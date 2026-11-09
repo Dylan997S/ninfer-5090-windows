@@ -41,6 +41,26 @@ DraftWeights bind_draft(Bindings& b, const DraftConfig& config, const TextConfig
         out.layers.push_back(std::move(layer));
     }
     if (config.dflash2) { bind_dflash2(b, out, config, target); }
+    if (config.dspine) {
+        auto& bridge      = out.dspine.emplace();
+        const auto p      = component + "/bridge/";
+        bridge.codebook   = b.direct(p + "codebook", {target.vocab_size, 1024});
+        bridge.gate_bias  = b.direct(p + "gate_bias", {512});
+        bridge.projection = b.parameter(p + "projection", {1536, 1024}, {p + "codes"});
+        const bool has_head_table   = b.binder.contains(p + "head_write_table");
+        const bool has_sender_table = b.binder.contains(p + "sender_table");
+        if (has_head_table != has_sender_table)
+            throw artifact::ArtifactError("DSpine requires both precomputed tables or neither");
+        if (has_head_table) {
+            bridge.head_write_table = b.direct(p + "head_write_table", {target.vocab_size, 512});
+            bridge.sender_table     = b.direct(p + "sender_table", {target.vocab_size, 1024});
+        }
+        for (std::uint32_t i = 0; i < config.num_hidden_layers; ++i) {
+            const auto l = p + "layers/" + std::to_string(i) + "/";
+            bridge.reads.push_back(b.parameter(l + "read", {1024, h}, {l + "normalized"}));
+            bridge.writes.push_back(b.parameter(l + "write", {h, 512}, {l + "message"}));
+        }
+    }
     return out;
 }
 

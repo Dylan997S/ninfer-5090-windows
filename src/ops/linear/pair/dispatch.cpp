@@ -52,6 +52,14 @@ LinearPairLaunch select_linear_pair(int k, int tokens) {
 }
 
 void validate_pair_weights(const Weight& first, const Weight& second, int max_tokens) {
+    if (first.qtype == QType::NVFP4 && second.qtype == QType::NVFP4) {
+        if (max_tokens <= 0 || first.n != 1024 || first.k != 5120 ||
+            second.n != first.n || second.k != first.k)
+            throw std::invalid_argument("linear_pair: unsupported NVFP4 geometry");
+        common::validate_nvfp4_weight(first, "linear_pair");
+        common::validate_nvfp4_weight(second, "linear_pair");
+        return;
+    }
     if (first.qtype == QType::BF16 && second.qtype == QType::BF16) {
         if (max_tokens <= 0 || (first.n != 4096 && first.n != 8192) || first.k != 128 ||
             second.n != first.n || second.k != first.k)

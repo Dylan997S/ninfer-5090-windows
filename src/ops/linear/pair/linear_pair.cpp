@@ -27,7 +27,8 @@ void require_nonoverlap(const Tensor& x0, const Tensor& x1, const Weight& w0, co
                second = operand::range(y1, "linear_pair");
     operand::disjoint(first, second, "linear_pair");
     const std::size_t elements = std::size_t(w0.n) * w0.k;
-    const auto bytes           = elements * (w0.qtype == QType::BF16 ? 2 : 1);
+    const auto bytes = w0.qtype == QType::NVFP4 ? elements / 2 :
+                       elements * (w0.qtype == QType::BF16 ? 2 : 1);
     for (const auto& input : {operand::range(x0, "linear_pair"), operand::range(x1, "linear_pair"),
                               range(w0.qdata, bytes), range(w1.qdata, bytes)}) {
         operand::disjoint(first, input, "linear_pair");
@@ -37,6 +38,11 @@ void require_nonoverlap(const Tensor& x0, const Tensor& x1, const Weight& w0, co
         for (const auto* scales : {w0.scales, w1.scales}) {
             operand::disjoint(first, range(scales, elements / 32 * 2), "linear_pair");
             operand::disjoint(second, range(scales, elements / 32 * 2), "linear_pair");
+        }
+    if (w0.qtype == QType::NVFP4)
+        for (const auto* weight : {&w0, &w1}) {
+            operand::disjoint(first, range(weight->payload, weight->payload_bytes), "linear_pair");
+            operand::disjoint(second, range(weight->payload, weight->payload_bytes), "linear_pair");
         }
 }
 } // namespace
@@ -57,6 +63,8 @@ std::size_t linear_pair_workspace_capacity_bytes(LinearProfile first, LinearProf
     if (first.qtype == QType::BF16) {
         if ((first.n != 4096 && first.n != 8192) || first.k != 128)
             throw std::invalid_argument("linear_pair: unsupported BF16 geometry");
+    } else if (first.qtype == QType::NVFP4 && first.n == 1024 && first.k == 5120) {
+        // A16 launches use no transient storage for any positive extent.
     } else if (first.qtype == QType::Q8_G32_FP16 && first.n == 1024)
         (void)detail::select_linear_pair(first.k, max_tokens);
     else
@@ -79,6 +87,9 @@ void linear_pair(const Tensor& x, const Tensor& second_input, const Weight& firs
     if (first.qtype == QType::BF16)
         detail::launch_bf16_pair(x, second_input, first, second, first_out, second_out,
                                  execution.stream());
+    else if (first.qtype == QType::NVFP4)
+        detail::launch_nvfp4_pair(x, second_input, first, second, first_out, second_out,
+                                  execution.stream());
     else if (x.data == second_input.data)
         detail::select_linear_pair(x.ne[0], x.ne[1])(x, first, second, first_out, second_out,
                                                      execution.stream());

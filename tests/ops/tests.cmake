@@ -1,4 +1,10 @@
 add_library(ninfer_op_test_support STATIC "${CMAKE_CURRENT_LIST_DIR}/suite.cpp")
+ninfer_add_op_test(ninfer_dspine_test
+  SOURCES "${CMAKE_CURRENT_LIST_DIR}/test_dspine.cpp"
+  LIBRARIES ninfer_ops)
+ninfer_add_op_test(ninfer_dspine_table_test
+  SOURCES "${CMAKE_CURRENT_LIST_DIR}/test_dspine_table.cpp"
+  LIBRARIES ninfer_ops)
 ninfer_test_includes(ninfer_op_test_support)
 ninfer_op_oracle_options(ninfer_op_test_support)
 target_link_libraries(ninfer_op_test_support PUBLIC ninfer_cpu CUDA::cudart)

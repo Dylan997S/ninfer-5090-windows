@@ -19,15 +19,13 @@ constexpr std::int32_t kQHeads  = 32;
 constexpr std::int32_t kKVHeads = 8;
 constexpr float kExpectedScale  = 0.08838834764831844055f;
 
-bool registered_window(std::uint32_t window) { return window == 2048 || window == 4096; }
-
 void require_profile(AttentionHeadGeometry geometry, std::uint32_t window, const char* op) {
     if (!valid_attention_head_geometry(geometry) || geometry.head_dim != kHeadDim ||
         geometry.query_heads != kQHeads || geometry.kv_heads != kKVHeads) {
         throw std::invalid_argument(std::string(op) + ": unsupported head geometry");
     }
-    if (!registered_window(window)) {
-        throw std::invalid_argument(std::string(op) + ": supported windows are 2048 and 4096");
+    if (!detail::supported_sliding_window(window)) {
+        throw std::invalid_argument(std::string(op) + ": unsupported window");
     }
 }
 
@@ -99,7 +97,8 @@ void sliding_window_attention(const Tensor& q, const Tensor& query_k, const Tens
                               AttentionHeadGeometry geometry, std::uint32_t window, float scale,
                               const ConstCyclicKVCacheLayerView& context,
                               SlidingWindowAttentionExecutionEnvelope envelope,
-                              MemoryArena& workspace, Tensor& out, CudaExecutionView execution) {
+                              MemoryArena& workspace, Tensor& out, CudaExecutionView execution,
+                              bool causal) {
     if (workspace.device() != execution.device()) {
         throw std::invalid_argument(
             "sliding_window_attention: workspace belongs to another device");
@@ -155,7 +154,7 @@ void sliding_window_attention(const Tensor& q, const Tensor& query_k, const Tens
     }
     detail::launch_sliding_window_attention(q, query_k, query_v, positions, valid_columns, scale,
                                             context, plan, partial.acc, partial.m, partial.l, out,
-                                            stream);
+                                            stream, causal);
 }
 
 } // namespace ninfer::ops

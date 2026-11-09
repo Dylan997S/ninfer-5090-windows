@@ -231,7 +231,7 @@ def draft_config(raw: dict, target: dict, backend: str) -> dict:
     # assuming a uniformity it cannot verify: DFlash v1's published config omits it and describes
     # five causal draft layers against one non-causal, so the assumption produces a silently wrong
     # drafter. A config this layer cannot represent is refused rather than converted.
-    _fixed(raw, "is_causal", False, backend, required=True)
+    _fixed(raw, "is_causal", backend == "dspine", backend, required=True)
     for key, value in (
         ("hidden_size", target["hidden_size"]),
         ("vocab_size", target["vocab_size"]),
@@ -302,6 +302,23 @@ def draft_config(raw: dict, target: dict, backend: str) -> dict:
     if type(mask) is not int or not 0 <= mask < target["vocab_size"]:
         raise ValueError(f"{backend}: mask token outside target embedding")
     output = {"target_layer_ids": list(taps), "mask_token_id": mask}
+    if backend == "dspine":
+        _fixed(raw, "block_size", 16, backend, required=True)
+        _fixed(raw, "num_hidden_layers", 5, backend, required=True)
+        _fixed(raw, "sliding_window", 8192, backend, required=True)
+        _fixed(draft, "draft_block_causal", True, backend, required=True)
+        _fixed(draft, "selected_prefix_terminal", False, backend, required=True)
+        _fixed(draft, "selected_prefix_feature_layers", [1, 2, 3, 4, 5], backend, required=True)
+        _fixed(draft, "selected_prefix_feature_write_mode", "independent", backend, required=True)
+        _fixed(draft, "selected_prefix_feature_writes", True, backend, required=True)
+        _fixed(draft, "selected_prefix_decode_mode", "serial", backend, required=True)
+        _fixed(draft, "selected_prefix_feature_gt_training", True, backend, required=True)
+        _fixed(draft, "selected_prefix_feature_next_token_rows", False, backend)
+        _fixed(draft, "selected_prefix_terminal_residual_rank", 0, backend)
+        _fixed(draft, "selected_prefix_last_write_refine", {"head_topk": 16, "kind": "exact_sender", "version": 1, "weight": 1.0}, backend, required=True)
+        _fixed(draft, "selected_prefix_code_bridge", {"code_size": 1024, "rank": 512, "eps": 1e-6, "kappa": 10.0}, backend, required=True)
+        _fixed(raw, "code_bridge_second_pass", {"first_exact": 4, "head_topk": 16, "mode": "serial_table"}, backend, required=True)
+        output.update(block_size=16, code_size=1024, rank=512, head_topk=16, causal=True)
     if backend == "dflash2":
         for key in (
             "conv_kernel_size",

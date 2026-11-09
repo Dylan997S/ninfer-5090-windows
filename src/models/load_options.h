@@ -22,7 +22,9 @@ struct LoadOptions {
         return speculative == SpeculativeBackend::DFlash2;
     }
 
-    [[nodiscard]] bool masked_draft() const noexcept { return dflash() || dflash2(); }
+    [[nodiscard]] bool masked_draft() const noexcept {
+        return dflash() || dflash2() || speculative == SpeculativeBackend::DSpine;
+    }
 
     [[nodiscard]] bool proposal_enabled() const noexcept {
         return purpose == EnginePurpose::Generation && speculative != SpeculativeBackend::None &&
@@ -39,13 +41,16 @@ struct LoadOptions {
             return "dflash";
         case SpeculativeBackend::DFlash2:
             return "dflash2";
+        case SpeculativeBackend::DSpine:
+            return "dspine";
         }
         return {};
     }
 };
 
 [[nodiscard]] constexpr bool is_masked_draft_backend(SpeculativeBackend backend) noexcept {
-    return backend == SpeculativeBackend::DFlash || backend == SpeculativeBackend::DFlash2;
+    return backend == SpeculativeBackend::DFlash || backend == SpeculativeBackend::DFlash2 ||
+           backend == SpeculativeBackend::DSpine;
 }
 
 [[nodiscard]] inline LoadOptions load_options(const EngineOptions& options) noexcept {

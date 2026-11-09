@@ -62,6 +62,9 @@ ops::WeightInput ModelDefinition::input(WeightUseId id) const {
 
 std::shared_ptr<const ModelDefinition> read_definition(const artifact::Reader& reader,
                                                        LoadOptions options) {
+    if (options.speculative == SpeculativeBackend::DSpine && options.proposal_enabled()) {
+        throw std::invalid_argument("DSpine requires the full proposal head");
+    }
     auto out         = std::make_unique<ModelDefinition::Impl>();
     out->artifact_id = reader.artifact_id();
     out->options     = options;

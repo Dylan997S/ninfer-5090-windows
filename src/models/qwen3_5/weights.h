@@ -82,9 +82,15 @@ struct SelectorWeights {
 };
 
 struct DraftWeights {
+    struct DSpine {
+        WeightId codebook, projection, gate_bias;
+        std::optional<WeightId> head_write_table, sender_table;
+        std::vector<WeightId> reads, writes;
+    };
     WeightId feature_projection, context_norm, final_norm;
     std::vector<DraftBlockWeights> layers;
     std::optional<SelectorWeights> selector;
+    std::optional<DSpine> dspine;
     WeightId token_embedding, output_head;
     WeightUseId output_head_use;
 };

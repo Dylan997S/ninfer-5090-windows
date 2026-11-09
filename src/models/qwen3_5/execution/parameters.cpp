@@ -230,6 +230,18 @@ public:
                                               codebook(w.selector->predecessor_codebook),
                                               codebook(w.selector->successor_codebook)};
         }
+        if (w.dspine) {
+            auto& bridge      = out.dspine.emplace();
+            bridge.codebook   = tensor(w.dspine->codebook);
+            bridge.gate_bias  = tensor(w.dspine->gate_bias);
+            bridge.projection = linear(w.dspine->projection);
+            if (w.dspine->head_write_table) {
+                bridge.head_write_table = tensor(*w.dspine->head_write_table);
+                bridge.sender_table     = tensor(*w.dspine->sender_table);
+            }
+            for (auto id : w.dspine->reads) bridge.reads.push_back(linear(id));
+            for (auto id : w.dspine->writes) bridge.writes.push_back(linear(id));
+        }
         return out;
     }
 

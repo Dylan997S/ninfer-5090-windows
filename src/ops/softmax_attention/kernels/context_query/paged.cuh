@@ -17,7 +17,7 @@ struct ContextAttentionPolicy {
 
     __device__ __forceinline__ int query_position(int) const { return 0; }
 
-    __device__ __forceinline__ bool allow_context(int, int) const { return true; }
+    __device__ __forceinline__ bool allow_key(int, int, bool) const { return true; }
 
     __device__ __forceinline__ std::int64_t context_tile(int kv_head, int key0,
                                                          std::int64_t page_offset) const {

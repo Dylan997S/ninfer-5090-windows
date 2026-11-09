@@ -19,10 +19,10 @@ struct SlidingWindowAttentionExecutionEnvelope {
 };
 
 /**
- * Symmetric non-causal sliding-window grouped-query attention.
+ * Sliding-window grouped-query attention with optional causal masking.
  *
- * The registered profiles are D=128, Hq=32, Hkv=8 (group 4), window/cyclic capacity 2048 or
- * 4096, scale=1/sqrt(128), T=1..16, and B=1..8. q/out are contiguous BF16 [128,32,T,B],
+ * The registered profiles are D=128, Hq=32, Hkv=8 (group 4), window/cyclic capacity 2048,
+ * 4096 or 8192, scale=1/sqrt(128), T=1..16, and B=1..8. q/out are contiguous BF16 [128,32,T,B],
  * query_k/query_v are contiguous BF16 [128,8,T,B], positions is contiguous device I32 [T,B], and
  * Context K/V select dense [128,padded_capacity,8] fields with contiguous Device I64 [B]
  * byte offsets. Every selected field is 16-byte aligned. valid_columns is Device I32 [B].
@@ -34,9 +34,8 @@ struct SlidingWindowAttentionExecutionEnvelope {
  * [max(0,L-window),L), with absolute position p stored at slot p mod window. Temporary query K/V is
  * a separate BF16 segment at [L,L+V). For live query position p_i, a populated context or
  * temporary key at p_j is visible
- * exactly when abs(p_j-p_i)<window. Thus distance window-1 is included and distance window is
- * excluded; every live query also sees every live temporary query row in its batch row. Query
- * head h reads KV head floor(h/4).
+ * exactly when abs(p_j-p_i)<window, and, in causal mode, p_j<=p_i. Thus distance window-1
+ * is included and distance window is excluded. Query head h reads KV head floor(h/4).
  *
  * Over the visible set J, score[j]=scale*dot(q,K[j]) and out=BF16(sum_j softmax(score)[j]*V[j]).
  * Inputs are interpreted in their represented dtype, including BF16 temporary V and FP16 cached V.
@@ -55,7 +54,8 @@ void sliding_window_attention(const Tensor& q, const Tensor& query_k, const Tens
                               AttentionHeadGeometry geometry, std::uint32_t window, float scale,
                               const ConstCyclicKVCacheLayerView& context,
                               SlidingWindowAttentionExecutionEnvelope envelope,
-                              MemoryArena& workspace, Tensor& out, CudaExecutionView execution);
+                              MemoryArena& workspace, Tensor& out, CudaExecutionView execution,
+                              bool causal = false);
 
 /**
  * Return transient capacity for every T in the inclusive optimized interval at the exact batch

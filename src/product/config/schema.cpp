@@ -53,10 +53,10 @@ constexpr FieldSpec kFields[] = {
      Scope::Generation, ConfigurationUnit::Bytes},
     {Field::CostPresets, "context_cache.cost_presets", "--context-cost-presets", "", "FILE",
      "Context-cost JSON overrides; empty uses built-in defaults."},
-    {Field::SpecBackend, "speculative.backend", "--spec", "", "none|mtp|dflash|dflash2",
+    {Field::SpecBackend, "speculative.backend", "--spec", "", "none|mtp|dflash|dflash2|dspine",
      "Speculative backend; none clears drafts and proposal head."},
     {Field::DraftTokens, "speculative.draft_tokens", "--draft-tokens", "", "N",
-     "MTP: 1..5; DFlash/DFlash2: 1..15; none: 0."},
+     "MTP: 1..5; DFlash/DFlash2/DSpine: 1..15; none: 0."},
     {Field::ProposalHead, "speculative.proposal_head", "--proposal-head", "", "full|optimized",
      "Proposal head representation."},
     {Field::MediaCache, "media.cache_capacity", "--media-cache-capacity", "", "SIZE",
@@ -379,7 +379,7 @@ FieldValue parse_field_value(Field field, const RawValue& value, bool command_li
     case Field::KvDtype:
         return enumeration(value, {"bf16", "int8", "fp8", "nvfp4", "k8v4"});
     case Field::SpecBackend:
-        return enumeration(value, {"none", "mtp", "dflash", "dflash2"});
+        return enumeration(value, {"none", "mtp", "dflash", "dflash2", "dspine"});
     case Field::ProposalHead:
         return enumeration(value, {"full", "optimized"});
     case Field::ReasoningEffort:

@@ -95,10 +95,17 @@ struct SelectorParameters {
 };
 
 struct DraftParameters {
+    struct DSpine {
+        Tensor codebook, gate_bias;
+        std::optional<Tensor> head_write_table, sender_table;
+        LinearParameters projection;
+        std::vector<LinearParameters> reads, writes;
+    };
     LinearParameters feature_projection;
     Tensor context_norm, final_norm;
     std::vector<DraftBlockParameters> layers;
     std::optional<SelectorParameters> selector;
+    std::optional<DSpine> dspine;
     LinearParameters output_head;
 };
 

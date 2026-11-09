@@ -349,16 +349,16 @@ __device__ __forceinline__ void context_query_split_partial_body(
             const bool row1_live = row1 < RowCount && row1 / kContextQueryGroup < valid;
             const bool allow00 =
                 row0_live && col0 < current_valid &&
-                (current_is_query || policy.allow_context(q_position0, current_key0 + col0));
+                policy.allow_key(q_position0, current_key0 + col0, current_is_query);
             const bool allow01 =
                 row0_live && col1 < current_valid &&
-                (current_is_query || policy.allow_context(q_position0, current_key0 + col1));
+                policy.allow_key(q_position0, current_key0 + col1, current_is_query);
             const bool allow10 =
                 row1_live && col0 < current_valid &&
-                (current_is_query || policy.allow_context(q_position1, current_key0 + col0));
+                policy.allow_key(q_position1, current_key0 + col0, current_is_query);
             const bool allow11 =
                 row1_live && col1 < current_valid &&
-                (current_is_query || policy.allow_context(q_position1, current_key0 + col1));
+                policy.allow_key(q_position1, current_key0 + col1, current_is_query);
             score[nt][0] = allow00 ? score[nt][0] * scale : -CUDART_INF_F;
             score[nt][1] = allow01 ? score[nt][1] * scale : -CUDART_INF_F;
             score[nt][2] = allow10 ? score[nt][2] * scale : -CUDART_INF_F;

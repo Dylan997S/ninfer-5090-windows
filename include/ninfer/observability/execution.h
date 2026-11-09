@@ -197,6 +197,7 @@ enum class SpeculativeBackend : std::uint8_t {
     Mtp,
     DFlash,
     DFlash2,
+    DSpine,
 };
 
 // Request-stage wall timings retained for end-to-end latency/rate reporting. Prefill/decode are

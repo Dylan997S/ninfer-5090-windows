@@ -4,6 +4,10 @@
 
 namespace ninfer::ops::detail {
 
+constexpr bool supported_sliding_window(std::uint32_t window) {
+    return window == 2048 || window == 4096 || window == 8192;
+}
+
 inline constexpr std::int32_t kSlidingWindowMaxSplits = 32;
 
 enum class SlidingWindowAttentionRoute {

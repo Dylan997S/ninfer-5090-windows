@@ -111,6 +111,11 @@ Third-Party Software and Attributions:
    Developed by z-lab contributors (https://huggingface.co/z-lab)
    License: Apache License 2.0
 
+10. DSpine speculative decoding architecture and Qwen3.8-27B draft checkpoint
+    Developed by Tencent DSpine contributors (https://github.com/Tencent/DSpine).
+    License: Apache License 2.0. This branch integrates DSpine with NInfer's native C++/CUDA
+    engine. The checkpoint is obtained separately from Tencent's model repository.
+
 ========================================================================
 Notice of Modified Files (Apache License 2.0, Section 4b):
 ========================================================================

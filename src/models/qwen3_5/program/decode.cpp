@@ -68,15 +68,16 @@ void RankProgramImpl::run_dflash_draft(std::uint32_t batch_value, std::uint32_t 
     auto& draft      = *frame.dflash;
     const int batch  = static_cast<int>(batch_value);
     const int drafts = static_cast<int>(draft_window), width = drafts + 1;
-    execution::DraftInputs inputs{frame.anchors.slice(0, 0, batch),
-                                  frame.frontiers.slice(0, 0, batch),
-                                  (backend == SpeculativeBackend::DFlash2
-                                       ? frame.proposal_valid_columns
-                                       : frame.valid_columns)
-                                      .slice(0, 0, batch),
-                                  frame.state_destination_offsets.slice(0, 0, batch),
-                                  frame.backend_table_rows.slice(0, 0, batch),
-                                  frame.sampling};
+    execution::DraftInputs inputs{
+        frame.anchors.slice(0, 0, batch),
+        frame.frontiers.slice(0, 0, batch),
+        (backend == SpeculativeBackend::DFlash2 || backend == SpeculativeBackend::DSpine
+             ? frame.proposal_valid_columns
+             : frame.valid_columns)
+            .slice(0, 0, batch),
+        frame.state_destination_offsets.slice(0, 0, batch),
+        frame.backend_table_rows.slice(0, 0, batch),
+        frame.sampling};
     execution::DraftOutputs outputs{
         dense_prefix(draft.proposal_ids, {width, batch}),
         dense_prefix(draft.proposal_positions, {width, batch}),

@@ -78,8 +78,10 @@ void kv_cache_append_prefix_dispatch(const Tensor& k, const Tensor& v, const Ten
     };
     if (cache.capacity == 2048)
         launch.template operator()<2048>();
-    else
+    else if (cache.capacity == 4096)
         launch.template operator()<4096>();
+    else
+        launch.template operator()<8192>();
     CUDA_CHECK(cudaGetLastError());
 }
 

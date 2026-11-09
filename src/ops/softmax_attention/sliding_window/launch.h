@@ -9,6 +9,6 @@ void launch_sliding_window_attention(const Tensor& q, const Tensor& query_k, con
                                      float scale, const ConstCyclicKVCacheLayerView& context,
                                      const SlidingWindowAttentionPlan& plan, Tensor& partial_acc,
                                      Tensor& partial_m, Tensor& partial_l, Tensor& out,
-                                     cudaStream_t stream);
+                                     cudaStream_t stream, bool causal);
 
 } // namespace ninfer::ops::detail

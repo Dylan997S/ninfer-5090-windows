@@ -139,7 +139,8 @@ void validate_paged_cache(const PagedKVBatchLayerView& cache,
 
 void validate_cyclic_cache(const CyclicKVCacheLayerView& cache, std::int32_t batch,
                            KVCacheAppendPrefixExecutionEnvelope envelope, Device device) {
-    const bool registered_capacity = cache.capacity == 2048 || cache.capacity == 4096;
+    const bool registered_capacity =
+        cache.capacity == 2048 || cache.capacity == 4096 || cache.capacity == 8192;
     if (cache.num_kv_heads != kKVHeads || cache.head_dim != kHeadDim || !registered_capacity ||
         cache.padded_capacity < cache.capacity ||
         cache.padded_capacity >

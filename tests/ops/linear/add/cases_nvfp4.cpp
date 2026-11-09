@@ -100,6 +100,7 @@ void add_profile(Suite& suite, const Profile& profile) {
 } // namespace
 
 void ninfer::test::linear_add::add_nvfp4_cases(Suite& suite) {
+    add_profile(suite, {5120, 4096, 9, 829U});
     add_profile(suite, {5120, 6144, 17, 811U});
     add_profile(suite, {5120, 17408, 8, 821U});
 }

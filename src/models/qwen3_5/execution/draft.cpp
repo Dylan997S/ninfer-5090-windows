@@ -1,10 +1,12 @@
 #include "models/qwen3_5/execution/draft.h"
+#include "models/qwen3_5/execution/dspine.h"
 #include "models/qwen3_5/execution/linear.h"
 #include <cmath>
 #include "models/qwen3_5/execution/workspace.h"
 
 #include "core/nvtx.h"
 #include "ninfer/ops/argmax.h"
+#include "ninfer/ops/dspine.h"
 #include "ninfer/ops/dynamic_grouped_conv.h"
 #include "ninfer/ops/context_kv_materialize.h"
 #include "ninfer/ops/rmsnorm_rope.h"
@@ -352,6 +354,8 @@ void propose_batch_impl(DraftExecutionView& execution, const DraftInputs& inputs
                                   dimension(config.mask_token_id), ids, positions, execution.cuda);
         Tensor residual =
             execution.work.alloc(DType::BF16, {dimension(target.hidden_size), columns});
+        std::optional<workspace::DSpineRoots> dspine;
+        if (config.dspine) dspine = workspace::dspine_roots(execution.work, columns);
         ops::embedding(ids.view({columns}), execution.parameters.text.token_embedding, residual,
                        execution.cuda);
 
@@ -366,8 +370,12 @@ void propose_batch_impl(DraftExecutionView& execution, const DraftInputs& inputs
                                                   static_cast<std::uint64_t>(layer));
                 auto attention_scope = execution.work.scope();
                 auto roots = workspace::dflash_attention(execution.work, target, config, columns);
-                ops::rmsnorm(residual, weight.input_norm, config.rms_norm_eps, false, roots.hidden,
-                             execution.cuda);
+                if (config.dspine && layer > 0)
+                    ops::dspine_post_write_norm(residual, weight.input_norm, config.rms_norm_eps,
+                                                 roots.hidden, execution.cuda);
+                else
+                    ops::rmsnorm(residual, weight.input_norm, config.rms_norm_eps, false,
+                                 roots.hidden, execution.cuda);
                 Tensor query_raw = roots.query_raw.view(
                     {dimension(config.attention.head_dim),
                      dimension(config.attention.num_attention_heads), columns});
@@ -418,7 +426,8 @@ void propose_batch_impl(DraftExecutionView& execution, const DraftInputs& inputs
                         static_cast<float>(1.0 / std::sqrt(double(config.attention.head_dim))),
                         execution.local_layer(config.compact_layer_index(layer),
                                               state_destinations),
-                        envelopes.local, execution.work, attention_batch, execution.cuda);
+                        envelopes.local, execution.work, attention_batch, execution.cuda,
+                        config.dspine);
                 } else {
                     ops::context_softmax_attention(
                         query_batch, key_batch, value_batch, frontiers, valid_columns, full_rows,
@@ -445,6 +454,13 @@ void propose_batch_impl(DraftExecutionView& execution, const DraftInputs& inputs
                 project_add(roots.intermediate, weight.mlp.down, residual, execution.work,
                             execution.cuda);
             }
+            if (dspine) dspine_write(execution, residual, anchors, layer, width, *dspine);
+        }
+
+        if (dspine) {
+            dspine_proposals(execution, residual, anchors, width, *dspine, drafts);
+            execution.work.reset();
+            return;
         }
 
         Tensor packed =

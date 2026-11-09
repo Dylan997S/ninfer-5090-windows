@@ -99,7 +99,9 @@ void test_arguments() {
                                                {"--prompt", "other", "--messages", "messages.json"},
                                                {"--seed", "18446744073709551616"},
                                                {"--temperature", "nan"},
-                                               {"--spec", "dflash2", "--draft-tokens", "16"}}) {
+                                               {"--spec", "dflash2", "--draft-tokens", "16"},
+                                               {"--spec", "dspine", "--draft-tokens", "0"},
+                                               {"--spec", "dspine", "--draft-tokens", "16"}}) {
         std::vector<std::string> args{"ninfer", "model.ninfer", "--prompt", "hello"};
         args.insert(args.end(), suffix.begin(), suffix.end());
         rejection([&] { parse(args); });
@@ -119,6 +121,17 @@ void test_arguments() {
                     configured.launch.engine.enable_vision,
                 "speculative and Vision controls were not retained");
     }
+    for (const auto* count : {"1", "7", "15"}) {
+        const auto configured = parse({"ninfer", "model.ninfer", "--prompt", "x", "--spec",
+                                       "dspine", "--draft-tokens", count, "--proposal-head", "full"});
+        require(configured.launch.engine.speculative.draft_tokens == std::stoi(count) &&
+                    configured.launch.engine.speculative.proposal_head == ninfer::ProposalHead::Full,
+                "DSpine draft width or proposal head was not retained");
+    }
+    rejection([&] {
+        parse({"ninfer", "model.ninfer", "--prompt", "x", "--spec", "dspine",
+               "--draft-tokens", "11", "--proposal-head", "optimized"});
+    });
 }
 
 void test_memory_headroom(const Files& files) {

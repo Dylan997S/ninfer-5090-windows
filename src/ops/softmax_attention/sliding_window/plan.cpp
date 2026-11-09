@@ -8,7 +8,7 @@ namespace ninfer::ops::detail {
 SlidingWindowAttentionPlan
 select_sliding_window_attention_plan(std::uint32_t window, std::int32_t tokens, std::int32_t batch,
                                      SlidingWindowAttentionExecutionEnvelope envelope) {
-    if (window != 2048 && window != 4096) {
+    if (!supported_sliding_window(window)) {
         throw std::invalid_argument("sliding_window_attention plan: unsupported window");
     }
     if (tokens < 1 || tokens > 16 || batch < 1 || batch > 8) {

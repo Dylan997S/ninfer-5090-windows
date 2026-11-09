@@ -289,4 +289,35 @@ DFlashMlpRoots dflash_mlp(Allocator& allocator, const TextConfig& target, const 
     };
 }
 
+struct DSpineRoots {
+    Tensor raw, rms, packed;
+};
+
+template <class Allocator>
+DSpineRoots dspine_roots(Allocator& allocator, std::int32_t tokens) {
+    return {matrix(allocator, DType::BF16, 5120, tokens), vector(allocator, DType::FP32, tokens),
+            matrix(allocator, DType::BF16, 1536, tokens)};
+}
+
+struct DSpineBridgeRoots {
+    Tensor normalized, codes, message, delta;
+};
+
+template <class Allocator>
+DSpineBridgeRoots dspine_bridge(Allocator& allocator, std::int32_t tokens) {
+    return {
+        matrix(allocator, DType::BF16, 5120, tokens), matrix(allocator, DType::BF16, 1024, tokens),
+        matrix(allocator, DType::BF16, 512, tokens), matrix(allocator, DType::BF16, 5120, tokens)};
+}
+
+struct DSpineRefineRoots {
+    Tensor codes, packed, message;
+};
+
+template <class Allocator>
+DSpineRefineRoots dspine_refine(Allocator& allocator, std::int32_t rows) {
+    return {matrix(allocator, DType::BF16, 1024, rows), matrix(allocator, DType::BF16, 1536, rows),
+            matrix(allocator, DType::BF16, 512, rows)};
+}
+
 } // namespace ninfer::models::qwen3_5::execution::workspace

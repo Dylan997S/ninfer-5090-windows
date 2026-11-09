@@ -20,7 +20,8 @@ namespace ninfer::ops {
 /**
  * Y0 = decode(W0) * X0; Y1 = decode(W1) * X1, using the linear A16 arithmetic contract.
  * Inputs [K,T] and outputs [N,T] are contiguous, 16-byte-aligned BF16 matrices.
- * Weights have identical registered geometry/encoding: BF16 Contiguous or Q8_G32_FP16 RowSplit.
+ * Weights have identical registered geometry/encoding: BF16 Contiguous, Q8_G32_FP16 RowSplit,
+ * or NVFP4 BlockScaleK16M128x4 [1024,5120]. Parent-row NVFP4 views are supported.
  * T is positive. Read-only inputs may alias. Outputs are disjoint from all operands.
  * Overwrites both outputs, uses no scratch and has no persistent state.
  */

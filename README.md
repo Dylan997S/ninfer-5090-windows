@@ -14,6 +14,9 @@ engine rejects v2 artifacts outright, so a v1.0.x user must download a v3 artifa
 [upgrade the one they have](docs/weight-conversion.md#upgrade-an-existing-v2-artifact). Details in
 [RELEASE_NOTES.md](RELEASE_NOTES.md).
 
+This experimental branch adds [NVFP4 DSpine on RTX 5090](docs/features/dspine-nvfp4-windows.md).
+It uses a separate model conversion and an explicit `--spec dspine` launch.
+
 ## Install a release (recommended)
 
 1. Download the archive attached to the release page and check it against the SHA-256 listed there.

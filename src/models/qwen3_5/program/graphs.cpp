@@ -215,7 +215,7 @@ std::vector<GraphProfile> draft_graph_profiles(const GraphSpec& spec) {
         }
         return profiles;
     }
-    if (spec.backend == SpeculativeBackend::DFlash) {
+    if (spec.backend == SpeculativeBackend::DFlash || spec.backend == SpeculativeBackend::DSpine) {
         constexpr std::array ends{96U,   127U,   511U,   1023U,  2047U,   4095U,
                                   8191U, 16383U, 32767U, 65536U, 131072U, 196608U};
         auto profiles = profiles_through(spec.capacity, ends);
