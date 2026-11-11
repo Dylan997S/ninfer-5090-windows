@@ -1,9 +1,11 @@
-# NInfer Windows NVFP4 DSpine portable
+# NInfer DSpine for RTX 5090
 
-Experimental Windows 11 x64 build for the RTX 5090. It is based on
+Windows 11 x64 portable build for Qwen3.8-27B NVFP4 on one RTX 5090. It is based on
 [headpiece747's NInfer Windows port](https://github.com/headpiece747/ninfer-5090-windows)
 of [Neroued/NInfer](https://github.com/Neroued/ninfer). The DSpine architecture and draft
 checkpoint are from [Tencent/DSpine](https://github.com/Tencent/DSpine).
+[Dylan](https://github.com/Dylan997S) integrated DSpine into the Windows engine,
+enabled 32 active execution lanes, and reduced DSpine's state and draft KV memory.
 
 ## Start with a converted model / 启动
 
@@ -37,6 +39,10 @@ $env:NINFER_CUDA_SYNC = 'blocking'
   --host 127.0.0.1 --port 18092 --model-id qwen27-dspine `
   --chat-template tools/chat_templates/qwen3_8.jinja
 ```
+
+The [benchmark guide](https://github.com/Dylan997S/ninfer-5090-windows/blob/v1.2.5-dspine.3/bench/dspine-5090.md)
+reproduces the 32-request Python test with a 2,304-token context and 2,048 output tokens
+per request. Linux validation is pending a matched-workload retest.
 
 ## Convert a model / 转换模型
 

@@ -1,0 +1,176 @@
+{
+  "cases": [
+    {
+      "topic": "pratt-parser",
+      "prompt": "Write a complete production-style Python module of at least 500 lines implementing a Pratt expression parser with typed syntax trees, source spans, calls, operator precedence, recovery from malformed input, and a command-line evaluator. Include type hints, clear errors, deterministic examples, and extensive unittest tests that exercise normal behavior and malformed inputs. Use only the standard library. Output full code with no placeholders, ellipses, or TODOs. Continue until all implementations and tests are complete.",
+      "input_tokens": 108
+    },
+    {
+      "topic": "interval-index",
+      "prompt": "Write a complete production-style Python module of at least 500 lines implementing a persistent interval tree with structural sharing, balanced insertion and deletion, overlap queries, ordered iteration, snapshots, and serialized indexes. Include typed dataclasses, validation, clear exceptions, examples, and extensive unittest tests for edge cases and invariants. Use the standard library only. Output code directly with complete implementations, no ellipses or TODOs, and continue until every component and test is implemented.",
+      "input_tokens": 107
+    },
+    {
+      "topic": "discrete-events",
+      "prompt": "Write a complete production-style Python module of at least 500 lines implementing a discrete event simulator with a priority calendar, cancellation, seeded randomness, process resources, queue disciplines, statistics, and a command-line scenario runner. Include type hints, clear errors, deterministic examples, and extensive unittest tests that exercise normal behavior and malformed inputs. Use only the standard library. Output full code with no placeholders, ellipses, or TODOs. Continue until all implementations and tests are complete.",
+      "input_tokens": 109
+    },
+    {
+      "topic": "csv-engine",
+      "prompt": "Write a complete production-style Python module of at least 500 lines implementing a streaming CSV query engine with typed schemas, filtering, joins, grouped aggregation, bounded sorting, malformed row handling, and a command-line interface. Include type hints, clear errors, deterministic examples, and extensive unittest tests that exercise normal behavior and malformed inputs. Use only the standard library. Output full code with no placeholders, ellipses, or TODOs. Continue until all implementations and tests are complete.",
+      "input_tokens": 109
+    },
+    {
+      "topic": "spatial-index",
+      "prompt": "Write a complete production-style Python module of at least 500 lines implementing a two dimensional spatial index with bounding boxes, bulk insertion, removal, nearest neighbor searches, range queries, serialization, and deterministic ordering. Include type hints, clear errors, deterministic examples, and extensive unittest tests that exercise normal behavior and malformed inputs. Use only the standard library. Output full code with no placeholders, ellipses, or TODOs. Continue until all implementations and tests are complete.",
+      "input_tokens": 107
+    },
+    {
+      "topic": "calendar-rules",
+      "prompt": "Write a complete production-style Python module of at least 500 lines implementing a recurring calendar engine with timezone aware events, recurrence rules, exclusions, occurrence expansion, conflict detection, and a command-line agenda viewer. Include type hints, clear errors, deterministic examples, and extensive unittest tests that exercise normal behavior and malformed inputs. Use only the standard library. Output full code with no placeholders, ellipses, or TODOs. Continue until all implementations and tests are complete.",
+      "input_tokens": 108
+    },
+    {
+      "topic": "ledger",
+      "prompt": "Write a complete production-style Python module of at least 500 lines implementing a double entry accounting ledger with decimal amounts, journals, balancing checks, fiscal periods, reversals, CSV imports, and trial balance reports. Include type hints, clear errors, deterministic examples, and extensive unittest tests that exercise normal behavior and malformed inputs. Use only the standard library. Output full code with no placeholders, ellipses, or TODOs. Continue until all implementations and tests are complete.",
+      "input_tokens": 108
+    },
+    {
+      "topic": "graph-paths",
+      "prompt": "Write a complete production-style Python module of at least 500 lines implementing a weighted graph analysis library with graph loading, shortest paths, topological sorting, strongly connected components, cycle reporting, and path reconstruction. Include type hints, clear errors, deterministic examples, and extensive unittest tests that exercise normal behavior and malformed inputs. Use only the standard library. Output full code with no placeholders, ellipses, or TODOs. Continue until all implementations and tests are complete.",
+      "input_tokens": 107
+    },
+    {
+      "topic": "raster-draw",
+      "prompt": "Write a complete production-style Python module of at least 500 lines implementing a raster drawing toolkit with scanline polygons, alpha blending, transforms, clipping, text-free layers, flood fill, and portable image export. Include type hints, clear errors, deterministic examples, and extensive unittest tests that exercise normal behavior and malformed inputs. Use only the standard library. Output full code with no placeholders, ellipses, or TODOs. Continue until all implementations and tests are complete.",
+      "input_tokens": 108
+    },
+    {
+      "topic": "grammar",
+      "prompt": "Write a complete production-style Python module of at least 500 lines implementing an Earley grammar parser with nullable rules, ambiguous parse forests, grammar validation, parse tree extraction, diagnostics, and a command-line grammar runner. Include type hints, clear errors, deterministic examples, and extensive unittest tests that exercise normal behavior and malformed inputs. Use only the standard library. Output full code with no placeholders, ellipses, or TODOs. Continue until all implementations and tests are complete.",
+      "input_tokens": 109
+    },
+    {
+      "topic": "recipe-planner",
+      "prompt": "Write a complete production-style Python module of at least 500 lines implementing a meal planning library with ingredient units, recipe scaling, grocery aggregation, dietary filters, nutrition totals, budget constraints, and a command-line interface. Include type hints, clear errors, deterministic examples, and extensive unittest tests that exercise normal behavior and malformed inputs. Use only the standard library. Output full code with no placeholders, ellipses, or TODOs. Continue until all implementations and tests are complete.",
+      "input_tokens": 109
+    },
+    {
+      "topic": "sparse-matrix",
+      "prompt": "Write a complete production-style Python module of at least 500 lines implementing a sparse matrix library with coordinate and compressed row formats, arithmetic, multiplication, transposition, iterative solvers, and text import and export. Include type hints, clear errors, deterministic examples, and extensive unittest tests that exercise normal behavior and malformed inputs. Use only the standard library. Output full code with no placeholders, ellipses, or TODOs. Continue until all implementations and tests are complete.",
+      "input_tokens": 108
+    },
+    {
+      "topic": "diff-engine",
+      "prompt": "Write a complete production-style Python module of at least 500 lines implementing a structured text diff library with edit scripts, unified diff parsing, patch application, three way merge, conflict reporting, and a command-line interface. Include type hints, clear errors, deterministic examples, and extensive unittest tests that exercise normal behavior and malformed inputs. Use only the standard library. Output full code with no placeholders, ellipses, or TODOs. Continue until all implementations and tests are complete.",
+      "input_tokens": 109
+    },
+    {
+      "topic": "geometry",
+      "prompt": "Write a complete production-style Python module of at least 500 lines implementing a computational geometry library with orientation predicates, segment intersections, convex hulls, polygon clipping, triangulation, and spatial validation. Include typed dataclasses, validation, clear exceptions, examples, and extensive unittest tests for edge cases and invariants. Use the standard library only. Output code directly with complete implementations, no ellipses or TODOs, and continue until every component and test is implemented.",
+      "input_tokens": 107
+    },
+    {
+      "topic": "finite-automata",
+      "prompt": "Write a complete production-style Python module of at least 500 lines implementing a finite automata toolkit with nondeterministic transitions, epsilon closure, determinization, minimization, language equivalence, and readable state diagrams. Include type hints, clear errors, deterministic examples, and extensive unittest tests that exercise normal behavior and malformed inputs. Use only the standard library. Output full code with no placeholders, ellipses, or TODOs. Continue until all implementations and tests are complete.",
+      "input_tokens": 108
+    },
+    {
+      "topic": "time-series",
+      "prompt": "Write a complete production-style Python module of at least 500 lines implementing a time series processing library with timestamp alignment, rolling statistics, resampling, missing data policies, streaming aggregates, and a command-line report tool. Include type hints, clear errors, deterministic examples, and extensive unittest tests that exercise normal behavior and malformed inputs. Use only the standard library. Output full code with no placeholders, ellipses, or TODOs. Continue until all implementations and tests are complete.",
+      "input_tokens": 109
+    },
+    {
+      "topic": "inventory",
+      "prompt": "Write a complete production-style Python module of at least 500 lines implementing an inventory allocation system with stock movements, reservations, lot expiration, reconciliation, fulfillment priorities, audit trails, and CSV reports. Include typed dataclasses, validation, clear exceptions, examples, and extensive unittest tests for edge cases and invariants. Use the standard library only. Output code directly with complete implementations, no ellipses or TODOs, and continue until every component and test is implemented.",
+      "input_tokens": 107
+    },
+    {
+      "topic": "route-planner",
+      "prompt": "Write a complete production-style Python module of at least 500 lines implementing a transit route planner with timetable parsing, transfer constraints, multi-criteria search, itinerary reconstruction, fare calculation, and schedule validation. Include typed dataclasses, validation, clear exceptions, examples, and extensive unittest tests for edge cases and invariants. Use only the standard library. Output full code with no placeholders, ellipses, or TODOs. Continue until all implementations and tests are complete.",
+      "input_tokens": 107
+    },
+    {
+      "topic": "table-format",
+      "prompt": "Write a complete production-style Python module of at least 500 lines implementing a terminal table rendering library with wrapping, alignment, nested column headings, variable widths, row spans, plain text export, and a demonstration command. Include type hints, clear errors, deterministic examples, and extensive unittest tests that exercise normal behavior and malformed inputs. Use only the standard library. Output full code with no placeholders, ellipses, or TODOs. Continue until all implementations and tests are complete.",
+      "input_tokens": 109
+    },
+    {
+      "topic": "chess-moves",
+      "prompt": "Write a complete production-style Python module of at least 500 lines implementing a chess position library with board parsing, legal move generation, castling, en passant, promotion, check detection, move notation, and game history. Include type hints, clear errors, deterministic examples, and extensive unittest tests that exercise normal behavior and malformed inputs. Use only the standard library. Output full code with no placeholders, ellipses, or TODOs. Continue until all implementations and tests are complete.",
+      "input_tokens": 110
+    },
+    {
+      "topic": "life-simulator",
+      "prompt": "Write a complete production-style Python module of at least 500 lines implementing a cellular automata simulator with configurable rules, sparse grids, pattern parsing, cycle detection, finite boundaries, and reproducible command-line scenarios. Include type hints, clear errors, deterministic examples, and extensive unittest tests that exercise normal behavior and malformed inputs. Use only the standard library. Output full code with no placeholders, ellipses, or TODOs. Continue until all implementations and tests are complete.",
+      "input_tokens": 108
+    },
+    {
+      "topic": "music-theory",
+      "prompt": "Write a complete production-style Python module of at least 500 lines implementing a music theory toolkit with note spelling, scale construction, chord analysis, transposition, voice leading, rhythm parsing, and plain text score export. Include type hints, clear errors, deterministic examples, and extensive unittest tests that exercise normal behavior and malformed inputs. Use only the standard library. Output full code with no placeholders, ellipses, or TODOs. Continue until all implementations and tests are complete.",
+      "input_tokens": 109
+    },
+    {
+      "topic": "units",
+      "prompt": "Write a complete production-style Python module of at least 500 lines implementing a dimensional analysis library with unit registries, exact rational conversion factors, affine temperature conversion, expression parsing, and useful mismatch errors. Include typed dataclasses, validation, clear exceptions, examples, and extensive unittest tests for edge cases and invariants. Use only the standard library. Output full code with no placeholders, ellipses, or TODOs. Continue until all implementations and tests are complete.",
+      "input_tokens": 107
+    },
+    {
+      "topic": "word-layout",
+      "prompt": "Write a complete production-style Python module of at least 500 lines implementing a paragraph layout library with line breaking, indentation, spacing penalties, width constraints, hyphenation hints, pagination, and formatted plain text output. Include type hints, clear errors, deterministic examples, and extensive unittest tests that exercise normal behavior and malformed inputs. Use only the standard library. Output full code with no placeholders, ellipses, or TODOs. Continue until all implementations and tests are complete.",
+      "input_tokens": 109
+    },
+    {
+      "topic": "tree-diff",
+      "prompt": "Write a complete production-style Python module of at least 500 lines implementing an ordered tree editing library with stable node identifiers, subtree moves, change sets, conflict checks, version snapshots, serialization, and replayable edits. Include type hints, clear errors, deterministic examples, and extensive unittest tests that exercise normal behavior and malformed inputs. Use only the standard library. Output full code with no placeholders, ellipses, or TODOs. Continue until all implementations and tests are complete.",
+      "input_tokens": 109
+    },
+    {
+      "topic": "polynomials",
+      "prompt": "Write a complete production-style Python module of at least 500 lines implementing a polynomial algebra library with exact rational coefficients, arithmetic, composition, division, differentiation, interpolation, and a command-line expression interface. Include typed dataclasses, validation, clear exceptions, examples, and extensive unittest tests for edge cases and invariants. Use only the standard library. Output full code with no placeholders, ellipses, or TODOs. Continue until all implementations and tests are complete.",
+      "input_tokens": 107
+    },
+    {
+      "topic": "library-catalog",
+      "prompt": "Write a complete production-style Python module of at least 500 lines implementing a library catalog module with title indexing, author normalization, circulation rules, hold queues, renewal limits, borrower reports, and file persistence. Include type hints, clear errors, deterministic examples, and extensive unittest tests that exercise normal behavior and malformed inputs. Use only the standard library. Output full code with no placeholders, ellipses, or TODOs. Continue until all implementations and tests are complete.",
+      "input_tokens": 107
+    },
+    {
+      "topic": "auction",
+      "prompt": "Write a complete production-style Python module of at least 500 lines implementing an auction simulator with sealed bids, reserve prices, tie breaking, budget validation, multiple auction formats, settlement, and deterministic audit reports. Include type hints, clear errors, deterministic examples, and extensive unittest tests that exercise normal behavior and malformed inputs. Use only the standard library. Output full code with no placeholders, ellipses, or TODOs. Continue until all implementations and tests are complete.",
+      "input_tokens": 107
+    },
+    {
+      "topic": "puzzle",
+      "prompt": "Write a complete production-style Python module of at least 500 lines implementing a constraint solving toolkit for logic grid puzzles with domains, propagation, backtracking, uniqueness checks, explanations, and a command-line puzzle reader. Include type hints, clear errors, deterministic examples, and extensive unittest tests that exercise normal behavior and malformed inputs. Use only the standard library. Output full code with no placeholders, ellipses, or TODOs. Continue until all implementations and tests are complete.",
+      "input_tokens": 108
+    },
+    {
+      "topic": "bitmap-font",
+      "prompt": "Write a complete production-style Python module of at least 500 lines implementing a bitmap font editor library with glyph metrics, pixel operations, sprite sheet import, rendering, baseline alignment, text export, and a demonstration command. Include type hints, clear errors, deterministic examples, and extensive unittest tests that exercise normal behavior and malformed inputs. Use only the standard library. Output full code with no placeholders, ellipses, or TODOs. Continue until all implementations and tests are complete.",
+      "input_tokens": 109
+    },
+    {
+      "topic": "statistics",
+      "prompt": "Write a complete production-style Python module of at least 500 lines implementing a statistical reporting library with weighted moments, robust quantiles, bootstrapping, correlation, histogram construction, CSV import, and reproducible summaries. Include type hints, clear errors, deterministic examples, and extensive unittest tests that exercise normal behavior and malformed inputs. Use only the standard library. Output full code with no placeholders, ellipses, or TODOs. Continue until all implementations and tests are complete.",
+      "input_tokens": 109
+    },
+    {
+      "topic": "markdown",
+      "prompt": "Write a complete production-style Python module of at least 500 lines implementing a Markdown document parser with block structure, nested lists, code fences, inline links, tables, source positions, and plain text and HTML rendering. Include type hints, clear errors, deterministic examples, and extensive unittest tests that exercise normal behavior and malformed inputs. Use only the standard library. Output full code with no placeholders, ellipses, or TODOs. Continue until all implementations and tests are complete.",
+      "input_tokens": 109
+    }
+  ],
+  "template_sha256": "951dee264974702eadecee83366227992a1f16ab7cd00611bec0f55018c43985",
+  "tokenizer_sha256": "0997f410c57a1f4e53b09e4be8f4a172d90edd9564368fb0847030937229b9f3",
+  "control_lengths": [
+    [
+      110,
+      110
+    ],
+    [
+      104,
+      104
+    ]
+  ]
+}

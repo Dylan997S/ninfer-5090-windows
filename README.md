@@ -1,4 +1,33 @@
-# NInfer 5090 Windows
+# NInfer DSpine for RTX 5090
+
+A Windows inference distribution for **Qwen3.8-27B NVFP4 on one RTX 5090**.
+It integrates DSpine for high-concurrency code generation with reproducible throughput tests.
+
+- [Windows portable release](https://github.com/Dylan997S/ninfer-5090-windows/releases/tag/v1.2.5-dspine.3)
+- [Model conversion and startup](tools/release/dspine-portable/START-HERE.md)
+- [Reproduce the 32-request benchmark](bench/dspine-5090.md)
+
+The launcher defaults to **one active request and 8,192 context tokens**. The same
+executable can enable **32 active lanes** with a 128-token prefill chunk and prefix reuse
+disabled. The throughput benchmark used a **2,304-token context**, 104–110 input tokens
+and 2,048 output tokens per request, FP8 KV, and DSpine K11.
+
+| RTX 5090 result | Workload | Aggregate output |
+|---|---|---:|
+| Five-round engineering benchmark | 32 distinct Python prompts per round, 160/160 complete | 2,368.2 tok/s pooled |
+| Portable-package acceptance | Two Python prompts alternating across 32 requests, 32/32 complete | 2,439.6 tok/s in one round |
+
+Both runs recorded actual decode batches of width 32. Generated code was timed and its
+length checked. Windows 11 x64 is the supported release platform. Linux validation is
+pending a matched-workload retest.
+
+NInfer is by [Neroued](https://github.com/Neroued/ninfer), the Windows port is by
+[headpiece747](https://github.com/headpiece747/ninfer-5090-windows), and the DSpine architecture
+and draft checkpoint are by [Tencent](https://github.com/Tencent/DSpine).
+[Dylan](https://github.com/Dylan997S) integrated DSpine into the Windows engine, enabled true
+32-lane scheduling, and optimized per-request state and draft KV memory.
+
+## Base Windows port reference
 
 > Native Windows port of NInfer. Selected checkpoints. Maximum single-GPU inference performance.
 
@@ -6,7 +35,8 @@ This repository is the native Windows port of [Neroued/ninfer](https://github.co
 the same C++/CUDA engine, built with MSVC and CUDA 13.3 on Windows 11 x64, with no WSL2 and no
 Docker. It runs text, image, and video prompts through a local CLI or OpenAI-/Anthropic-compatible
 HTTP APIs. The runtime is deliberately specialized: one GPU, one resident model, and a
-startup-fixed capacity of one to eight active requests.
+startup-fixed active-request capacity. The eight-launcher reference below describes the
+base Windows v1.2.5 distribution.
 
 Release v1.2.5 ships **eight measured launchers over four Qwen3.8-27B artifact lines**, all
 vision-capable at the full 262,144-token context, with DFlash2 or MTP speculative decoding. The
@@ -14,10 +44,10 @@ engine rejects v2 artifacts outright, so a v1.0.x user must download a v3 artifa
 [upgrade the one they have](docs/weight-conversion.md#upgrade-an-existing-v2-artifact). Details in
 [RELEASE_NOTES.md](RELEASE_NOTES.md).
 
-This experimental branch adds [NVFP4 DSpine on RTX 5090](docs/features/dspine-nvfp4-windows.md).
+This branch adds [NVFP4 DSpine on RTX 5090](docs/features/dspine-nvfp4-windows.md).
 It uses a separate model conversion and an explicit `--spec dspine` launch.
 
-## Install a release (recommended)
+## Install a base Windows port release
 
 1. Download the archive attached to the release page and check it against the SHA-256 listed there.
 2. Extract it anywhere. The executables, the launchers and `download_model.bat` sit in the root.
