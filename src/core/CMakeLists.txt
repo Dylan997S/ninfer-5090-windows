@@ -15,13 +15,15 @@ endif()
 
 if(WIN32)
   set(NINFER_CPU_SYSTEM_SOURCE cpu/system_windows.cpp)
+  set(NINFER_CORE_LINKAGE STATIC)
 elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
   set(NINFER_CPU_SYSTEM_SOURCE cpu/system.cpp)
+  set(NINFER_CORE_LINKAGE SHARED)
 else()
   message(FATAL_ERROR "NInfer CPU execution requires Linux x86-64 or Windows x86-64")
 endif()
 
-add_library(ninfer_cpu STATIC
+add_library(ninfer_cpu ${NINFER_CORE_LINKAGE}
   ${NINFER_CPU_SYSTEM_SOURCE}
   cpu/task_pool.cpp
 )
@@ -40,13 +42,13 @@ if(NINFER_TARGET STREQUAL "rtx5090")
     # GCC translation unit is Linux-only here; the executor itself is platform-neutral.
     add_library(ninfer_cpu_executor STATIC cpu/executor.cpp)
   else()
-    add_library(ninfer_cpu_executor STATIC cpu/executor.cpp cpu/x86.cpp)
+    add_library(ninfer_cpu_executor ${NINFER_CORE_LINKAGE} cpu/executor.cpp cpu/x86.cpp)
   endif()
   ninfer_internal_includes(ninfer_cpu_executor)
   target_link_libraries(ninfer_cpu_executor PUBLIC ninfer_cpu)
 endif()
 
-add_library(ninfer_core STATIC
+add_library(ninfer_core ${NINFER_CORE_LINKAGE}
   arena.cpp
   buffer.cpp
   buffer.cu

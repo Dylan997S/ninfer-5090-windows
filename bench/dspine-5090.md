@@ -36,4 +36,5 @@ is total output tokens divided by the sum of measured round wall times, includin
 Both used Windows 11, one RTX 5090, DSpine K11, FP8 KV, a 2,304-token context, a 128-token
 prefill chunk, and prefix reuse disabled. The engineering run ranged from 2,325.9 to 2,424.0
 tok/s. The two measurements used different prompt mixes and different builds. Code was timed
-and checked for output length. Linux validation is pending a matched-workload retest.
+and checked for output length. See the [Linux guide](../docs/features/dspine-linux-rtx5090.md)
+for the matched Ubuntu 24.04 WSL2 run.

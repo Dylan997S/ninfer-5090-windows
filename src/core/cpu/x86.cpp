@@ -6,27 +6,6 @@
 
 namespace ninfer {
 
-CpuFeatures cpu_detail::usable_features(const FeatureRegisters& r) noexcept {
-    CpuFeatures result;
-    constexpr auto avx_state = (1U << 26) | (1U << 27) | (1U << 28);
-    if ((r.leaf1_ecx & avx_state) != avx_state || (r.xcr0 & 0x6U) != 0x6U) return result;
-    const auto add = [&](bool available, CpuFeature feature) {
-        if (available) result.bits |= static_cast<std::uint32_t>(feature);
-    };
-    add(r.leaf1_ecx & (1U << 12), CpuFeature::Fma);
-    add(r.leaf1_ecx & (1U << 29), CpuFeature::F16c);
-    add(r.leaf7_0_ebx & (1U << 5), CpuFeature::Avx2);
-    add(r.leaf7_1_eax & (1U << 4), CpuFeature::AvxVnni);
-    if ((r.xcr0 & 0xe6U) != 0xe6U || !(r.leaf7_0_ebx & (1U << 16))) return result;
-    add(true, CpuFeature::Avx512F);
-    add(r.leaf7_0_ebx & (1U << 17), CpuFeature::Avx512Dq);
-    add(r.leaf7_0_ebx & (1U << 30), CpuFeature::Avx512Bw);
-    add(r.leaf7_0_ebx & (1U << 31), CpuFeature::Avx512Vl);
-    add(r.leaf7_0_ecx & (1U << 11), CpuFeature::Avx512Vnni);
-    add(r.leaf7_1_eax & (1U << 5), CpuFeature::Avx512Bf16);
-    return result;
-}
-
 CpuFeatures current_cpu_features() noexcept {
     cpu_detail::FeatureRegisters state;
     unsigned eax, ebx, ecx, edx;

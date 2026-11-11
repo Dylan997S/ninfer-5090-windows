@@ -6,6 +6,7 @@ It integrates DSpine for high-concurrency code generation with reproducible thro
 - [Windows portable release](https://github.com/Dylan997S/ninfer-5090-windows/releases/tag/v1.2.5-dspine.3)
 - [Model conversion and startup](tools/release/dspine-portable/START-HERE.md)
 - [Reproduce the 32-request benchmark](bench/dspine-5090.md)
+- [Linux build and WSL2 verification](docs/features/dspine-linux-rtx5090.md)
 
 The launcher defaults to **one active request and 8,192 context tokens**. The same
 executable can enable **32 active lanes** with a 128-token prefill chunk and prefix reuse
@@ -18,8 +19,9 @@ and 2,048 output tokens per request, FP8 KV, and DSpine K11.
 | Portable-package acceptance | Two Python prompts alternating across 32 requests, 32/32 complete | 2,439.6 tok/s in one round |
 
 Both runs recorded actual decode batches of width 32. Generated code was timed and its
-length checked. Windows 11 x64 is the supported release platform. Linux validation is
-pending a matched-workload retest.
+length checked. The Linux x86-64 build completed the matched tests on Ubuntu 24.04 WSL2,
+including **2,349.1 tok/s** pooled across five rounds of distinct Python prompts.
+Bare-metal Linux has yet to be validated.
 
 NInfer is by [Neroued](https://github.com/Neroued/ninfer), the Windows port is by
 [headpiece747](https://github.com/headpiece747/ninfer-5090-windows), and the DSpine architecture

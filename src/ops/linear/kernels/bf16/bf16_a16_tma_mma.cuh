@@ -52,10 +52,8 @@ inline CUtensorMap bf16_tma_map(const __nv_bfloat16* pointer, int rows, int k, i
                                 int block_k) {
     // Factor K into 64-element sectors. The contiguous 128-byte dimension matches the
     // hardware swizzle while the next box dimension permits larger K tiles without repacking.
-    // `alignas(64)` is this port's change (1218d574): MSVC's host stub rejects a by-value descriptor
-    // at 128 with C2719, and the measured acceptance ceiling is 64 -- see the struct above, which
-    // carries the probe's numbers.
-    alignas(64) CUtensorMap result{};
+    // The driver needs an aligned output map even when the host headers omit the attribute.
+    alignas(alignof(CUtensorMap) > 64 ? alignof(CUtensorMap) : 64) CUtensorMap result{};
     std::uint64_t dimensions[]{64, static_cast<std::uint64_t>(k / 64),
                                static_cast<std::uint64_t>(rows)};
     std::uint64_t strides[]{128, static_cast<std::uint64_t>(k) * 2};

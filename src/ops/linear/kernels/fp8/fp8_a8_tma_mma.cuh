@@ -17,23 +17,14 @@
 
 namespace ninfer::ops::detail {
 
-// alignas(64), not 128. The 128 was what MSVC's ABI rejected (C2719) and what forced the pointer
-// form below; tools/scripts/probe_tma_align.cmd measures this toolchain directly and records
-// 8/16/32/64 ACCEPTED with 128 and 256 rejected by four C2719 sites each. 64 is the width CUDA asks
-// for here (cuda.h:3749) and it compiles, so the by-value parameter can be used on Windows too --
-// which removes the pointer form, and the pointer form is the only thing that differs from the three
-// ports that run this route on sm_120a.
-struct alignas(64) Fp8TmaDescriptors {
+// Supply at least 64-byte alignment for the by-value TMA descriptors, while preserving
+// the stronger natural alignment of CUtensorMap on Linux.
+struct alignas(alignof(CUtensorMap) > 64 ? alignof(CUtensorMap) : 64) Fp8TmaDescriptors {
     CUtensorMap activation;
     CUtensorMap weight;
 };
 
-// The comment above states an invariant; this makes the compiler enforce it. Documentation drift is
-// not detectable in general -- 28.9% of the top 1000 GitHub projects are stale right now, and ~55% of
-// an outdated reference is still present a month later -- so where a documented claim CAN be bound to
-// the compiler, binding it beats writing it down.
-static_assert(alignof(Fp8TmaDescriptors) == 64,
-              "the comment above says alignas(64); if this fails the comment is wrong, not the compiler");
+static_assert(alignof(Fp8TmaDescriptors) >= 64, "TMA requires 64-byte descriptor alignment");
 static_assert(sizeof(Fp8TmaDescriptors) == 2 * sizeof(CUtensorMap),
               "two descriptors back to back; the fp8_tma_acquire_map size argument assumes this");
 
@@ -53,7 +44,7 @@ static_assert(sizeof(Fp8TmaDescriptors) == 2 * sizeof(CUtensorMap),
 
 inline CUtensorMap fp8_tma_map(const std::uint8_t* pointer, int rows, int k, int block_rows,
                                int block_k) {
-    alignas(64) CUtensorMap result{};
+    alignas(alignof(Fp8TmaDescriptors)) CUtensorMap result{};
     const std::uint64_t dimensions[]{static_cast<std::uint64_t>(k),
                                      static_cast<std::uint64_t>(rows)};
     const std::uint64_t strides[]{static_cast<std::uint64_t>(k)};
