@@ -4,6 +4,7 @@ A Windows inference distribution for **Qwen3.8-27B NVFP4 on one RTX 5090**.
 It integrates DSpine for high-concurrency code generation with reproducible throughput tests.
 
 - [Windows portable release](https://github.com/Dylan997S/ninfer-5090-windows/releases/tag/v1.2.5-dspine.3)
+- [Linux x86-64 release, verified on Ubuntu 24.04 WSL2](https://github.com/Dylan997S/ninfer-5090-windows/releases/tag/v1.2.5-dspine.4)
 - [Model conversion and startup](https://github.com/Dylan997S/ninfer-5090-windows/blob/v1.2.5-dspine.3/tools/release/dspine-portable/START-HERE.md)
 - [Reproduce the 32-request benchmark](https://github.com/Dylan997S/ninfer-5090-windows/blob/v1.2.5-dspine.3/bench/dspine-5090.md)
 
@@ -18,8 +19,7 @@ and 2,048 output tokens per request, FP8 KV, and DSpine K11.
 | Portable-package acceptance | Two Python prompts alternating across 32 requests, 32/32 complete | 2,439.6 tok/s in one round |
 
 Both runs recorded actual decode batches of width 32. Generated code was timed and its
-length checked. Windows 11 x64 is the supported release platform. Linux validation is
-pending a matched-workload retest.
+length checked. Windows 11 x64 and Ubuntu 24.04 WSL2 have been tested. Bare-metal Linux has yet to be validated.
 
 NInfer is by [Neroued](https://github.com/Neroued/ninfer), the Windows port is by
 [headpiece747](https://github.com/headpiece747/ninfer-5090-windows), and the DSpine architecture
