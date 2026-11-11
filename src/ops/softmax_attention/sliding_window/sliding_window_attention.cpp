@@ -30,10 +30,12 @@ void require_profile(AttentionHeadGeometry geometry, std::uint32_t window, const
 }
 
 void validate_context(const ConstCyclicKVCacheLayerView& context, std::uint32_t window,
-                      const char* op, Device device) {
+                      std::uint32_t max_context, const char* op, Device device) {
     common::operand::device(context.device(), device, op, "cache");
     if (context.num_kv_heads != kKVHeads || context.head_dim != kHeadDim ||
-        context.capacity != window || context.padded_capacity < context.capacity ||
+        !detail::supported_sliding_window(context.capacity) || context.capacity > window ||
+        (context.capacity != window && max_context > context.capacity) ||
+        context.padded_capacity < context.capacity ||
         context.k.field.layers != 1 || context.v.field.layers != 1) {
         throw std::invalid_argument(std::string(op) + ": invalid cyclic context");
     }
@@ -72,7 +74,7 @@ std::size_t sliding_window_attention_workspace_capacity_bytes(
     std::int32_t max_tokens, std::int32_t batch_size) {
     require_profile(geometry, window, "sliding_window_attention workspace");
     if (min_tokens < 1 || max_tokens < min_tokens || max_tokens > 16 || batch_size < 1 ||
-        batch_size > 8 || envelope.min_context > envelope.max_context ||
+        batch_size > 32 || envelope.min_context > envelope.max_context ||
         envelope.max_context >
             static_cast<std::uint32_t>(std::numeric_limits<std::int32_t>::max())) {
         throw std::invalid_argument(
@@ -119,8 +121,8 @@ void sliding_window_attention(const Tensor& q, const Tensor& query_k, const Tens
     if (tokens < 1 || tokens > 16) {
         throw std::invalid_argument("sliding_window_attention: optimized domain is T=1..16");
     }
-    if (batch < 1 || batch > 8) {
-        throw std::invalid_argument("sliding_window_attention: B must be 1..8");
+    if (batch < 1 || batch > 32) {
+        throw std::invalid_argument("sliding_window_attention: B must be 1..32");
     }
     common::operand::shape(q, {kHeadDim, kQHeads, tokens, batch}, op, "q");
     common::operand::shape(query_k, {kHeadDim, kKVHeads, tokens, batch}, op, "query k");
@@ -134,7 +136,7 @@ void sliding_window_attention(const Tensor& q, const Tensor& query_k, const Tens
     common::operand::contiguous_nonnull(positions, op, "positions", execution.device());
     common::operand::contiguous_nonnull(valid_columns, op, "valid columns", execution.device());
     common::operand::contiguous_nonnull(out, op, "out", execution.device());
-    validate_context(context, window, op, execution.device());
+    validate_context(context, window, envelope.max_context, op, execution.device());
     common::operand::shape(context.k.records.byte_offsets, {batch, 1, 1, 1}, op, "K offsets");
     common::operand::shape(context.v.records.byte_offsets, {batch, 1, 1, 1}, op, "V offsets");
     if (envelope.min_context > envelope.max_context ||

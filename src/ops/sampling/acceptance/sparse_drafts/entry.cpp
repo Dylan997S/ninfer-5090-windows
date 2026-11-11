@@ -11,7 +11,7 @@ constexpr std::int32_t kSparseMaxDrafts    = 15;
 constexpr std::int32_t kSparseCandidates   = 16;
 constexpr std::int32_t kSparsePhysicalRows = 248320;
 constexpr std::int32_t kSparseTokenDomain  = 248077;
-constexpr std::int32_t kSparseMaxBatch     = 8;
+constexpr std::int32_t kSparseMaxBatch     = 32;
 
 } // namespace
 
@@ -52,7 +52,7 @@ void speculative_accept_sparse_drafts(const Tensor& target_tokens, const Tensor&
     const std::int32_t columns = k + 1;
     const std::int32_t batch   = drafts.ne[1];
     if (batch < 1 || batch > kSparseMaxBatch) {
-        throw std::invalid_argument("speculative_accept_sparse_drafts: B must be 1..8");
+        throw std::invalid_argument("speculative_accept_sparse_drafts: B must be 1..32");
     }
     common::operand::tensor(target_tokens, DType::I32, {columns, batch}, 1, op, "target_tokens",
                             execution.device());

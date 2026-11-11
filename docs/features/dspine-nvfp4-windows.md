@@ -9,7 +9,8 @@ The measured preset uses `--spec dspine --draft-tokens 11 --proposal-head full`,
 and optional BF16 lookup tables. Conversion quantizes the draft projections to weight-only
 NVFP4. The target tensors are copied and verified by object SHA-256. The full head retrieves
 the top 16 candidates and refines them with the DSpine bridge before normal target verification.
-This preset is intended for text experiments. Its measured context limit is 8,192 tokens.
+The portable launcher defaults to 8,192 context tokens per request and one active request.
+The 32-lane build supports explicit concurrency settings up to 32.
 
 ## Build and prepare the model
 
@@ -30,7 +31,7 @@ python -m tools.convert.verify_dspine_tables --base model-dspine.ninfer --tables
 The final artifact was about 19.8 GiB on disk. Keep sufficient room for both conversion outputs.
 Model weights and build products are obtained or built locally.
 
-## Serve the measured preset
+## Serve the default preset
 
 From the repository root with the default `build` directory:
 
@@ -38,9 +39,12 @@ From the repository root with the default `build` directory:
 $env:NINFER_CUDA_SYNC = 'blocking'
 .\build\apps\ninfer-serve.exe model-dspine-tables.ninfer --spec dspine --draft-tokens 11 --proposal-head full `
   --kv-dtype fp8 --max-context 8192 --context-capacity 8GiB --host-cache-capacity 8GiB `
-  --max-concurrency 8 --prefill-chunk 1024 --no-prefix-reuse --host 127.0.0.1 --port 18092 `
+  --max-concurrency 1 --prefill-chunk 1024 --no-prefix-reuse --host 127.0.0.1 --port 18092 `
   --model-id qwen27-dspine --chat-template tools/chat_templates/qwen3_8.jinja
 ```
+
+See the [portable guide](../../tools/release/dspine-portable/START-HERE.md) for the optional
+32-lane configuration. Context storage is shared across active requests.
 
 ## Historical RTX 5090 measurements
 

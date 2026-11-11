@@ -24,6 +24,7 @@
 #include "ninfer/ops/softmax_attention.h"
 #include "ninfer/ops/speculative_accept.h"
 #include <algorithm>
+#include <bit>
 #include <limits>
 #include <stdexcept>
 #include <string>
@@ -93,9 +94,14 @@ ResourceLayout persistent_layout(const SequencePlanImpl& plan) {
     }
     if (plan.features.masked_draft()) {
         const auto& draft              = *profile.config.draft;
+        auto local_capacity = draft.sliding_window.value_or(0);
+        if (plan.speculative_backend == SpeculativeBackend::DSpine && local_capacity &&
+            plan.capacity < local_capacity) {
+            local_capacity = std::max(2048U, std::bit_ceil(plan.capacity));
+        }
         spec.state_images.dflash_local = DFlashLocalStateSpec{
             .layers   = draft.local_layer_count(),
-            .capacity = draft.sliding_window.value_or(0),
+            .capacity = local_capacity,
             .kv_heads = dimension(draft.attention.num_key_value_heads),
             .head_dim = dimension(draft.attention.head_dim),
         };
@@ -566,7 +572,7 @@ void validate_target_options(const execution::ModelProfile& profile, DeviceConte
         throw std::invalid_argument("prefill_chunk must be a nonzero multiple of 128");
     }
     if (options.max_concurrency == 0 || options.max_concurrency > kMaximumConcurrency) {
-        throw std::invalid_argument("max_concurrency must be in [1,8]");
+        throw std::invalid_argument("max_concurrency must be in [1,32]");
     }
     switch (options.speculative.backend) {
     case SpeculativeBackend::None:
@@ -698,8 +704,16 @@ make_sequence_planner_impl(std::shared_ptr<const execution::ModelProfile> profil
         const auto short_tokens = static_cast<std::uint32_t>(std::min<std::uint64_t>(
             inputs.capacity, std::uint64_t(inputs.prefill_chunk) + inputs.draft_window + 1));
         const auto short_pages  = page_count(short_tokens) + transition;
+        const bool private_dspine = inputs.speculative_backend == SpeculativeBackend::DSpine &&
+                                    !inputs.context_cache.enabled;
+        // Fresh requests without prefix reuse each own one mutable StateImage.
+        // Keep one shared spare for a recovery transition. Runtime reservations
+        // still account for every additional live state and page.
+        const auto concurrent_states = private_dspine
+                                           ? inputs.max_concurrency + transition
+                                           : inputs.max_concurrency * (1 + transition);
         capacity.working_sets.push_back(working_set(
-            "concurrent requests", inputs.max_concurrency * (1 + transition),
+            "concurrent requests", concurrent_states,
             inputs.max_concurrency * short_pages, inputs.max_concurrency * short_pages));
         if (inputs.context_cache.enabled)
             capacity.working_sets.push_back(working_set(

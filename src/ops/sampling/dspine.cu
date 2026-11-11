@@ -180,8 +180,8 @@ void matrix(const Tensor& value, DType dtype, int features, int rows, CudaExecut
 }
 
 void width_rows(int width, int rows) {
-    if (width < 2 || width > 16 || rows < width || rows > width * 8 || rows % width)
-        throw std::invalid_argument("DSpine requires complete 2..16-token blocks and 1..8 rows");
+    if (width < 2 || width > 16 || rows < width || rows > width * 32 || rows % width)
+        throw std::invalid_argument("DSpine requires complete 2..16-token blocks and 1..32 rows");
 }
 } // namespace
 

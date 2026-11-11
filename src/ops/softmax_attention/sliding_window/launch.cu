@@ -56,7 +56,7 @@ void launch_sliding_window_attention(const Tensor& q, const Tensor& query_k, con
                                      cudaStream_t stream, bool causal) {
     const bool direct = plan.route == SlidingWindowAttentionRoute::Direct;
     if (!supported_sliding_window(static_cast<std::uint32_t>(plan.window)) ||
-        context.capacity != static_cast<std::uint32_t>(plan.window) || plan.key_block != 32 ||
+        plan.key_block != 32 ||
         plan.reduce_warps != (plan.window == 2048 ? 4 : 1) || plan.split_capacity < 1 ||
         plan.split_capacity > kSlidingWindowMaxSplits || (direct && plan.split_capacity != 1))
         throw std::invalid_argument("sliding_window_attention: inconsistent plan");
@@ -66,7 +66,7 @@ void launch_sliding_window_attention(const Tensor& q, const Tensor& query_k, con
             2u * KeyBlock * kContextQueryHeadDim * sizeof(__nv_bfloat16);
         if (plan.warps != Warps)
             throw std::invalid_argument("sliding_window_attention: inconsistent query layout");
-        // Window determines visibility and ring addressing, not the MMA storage layout.
+        // Logical visibility is independent of the physical history ring.
         const auto partial = [&]<bool Direct>() {
             const dim3 grid(kContextQueryKVHeads, Direct ? 1 : plan.split_capacity, q.ne[3]);
             sliding_window_attention_split_partial_kernel<Tokens, Warps, KeyBlock, Direct>
@@ -80,7 +80,8 @@ void launch_sliding_window_attention(const Tensor& q, const Tensor& query_k, con
                     static_cast<const std::int64_t*>(context.v.records.byte_offsets.data),
                     common::operand::state_field_base<const __nv_bfloat16>(context.k),
                     common::operand::state_field_base<const __half>(context.v),
-                    static_cast<int>(context.padded_capacity), plan.window - 1, plan.max_context,
+                    static_cast<int>(context.padded_capacity), plan.window - 1,
+                    static_cast<int>(context.capacity) - 1, plan.max_context,
                     causal, Direct ? 1 : plan.split_capacity, scale,
                     static_cast<float*>(partial_acc.data), static_cast<float*>(partial_m.data),
                     static_cast<float*>(partial_l.data), static_cast<__nv_bfloat16*>(out.data));

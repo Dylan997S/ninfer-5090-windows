@@ -83,7 +83,7 @@ std::size_t context_softmax_attention_workspace_capacity_bytes(
     std::int32_t min_tokens, std::int32_t max_tokens, std::int32_t batch_size) {
     require_profile(geometry, "context_softmax_attention workspace");
     if (min_tokens < 1 || max_tokens < min_tokens || max_tokens > 16 || batch_size < 1 ||
-        batch_size > 8 || envelope.min_context > envelope.max_context ||
+        batch_size > 32 || envelope.min_context > envelope.max_context ||
         envelope.max_context >
             static_cast<std::uint32_t>(std::numeric_limits<std::int32_t>::max())) {
         throw std::invalid_argument(
@@ -129,8 +129,8 @@ void context_softmax_attention(const Tensor& q, const Tensor& query_k, const Ten
     if (tokens < 1 || tokens > 16) {
         throw std::invalid_argument("context_softmax_attention: optimized domain is T=1..16");
     }
-    if (batch < 1 || batch > 8) {
-        throw std::invalid_argument("context_softmax_attention: B must be 1..8");
+    if (batch < 1 || batch > 32) {
+        throw std::invalid_argument("context_softmax_attention: B must be 1..32");
     }
     common::operand::shape(q, {kHeadDim, kQHeads, tokens, batch}, op, "q");
     common::operand::shape(query_k, {kHeadDim, kKVHeads, tokens, batch}, op, "query k");

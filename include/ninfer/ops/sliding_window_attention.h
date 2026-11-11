@@ -21,8 +21,8 @@ struct SlidingWindowAttentionExecutionEnvelope {
 /**
  * Sliding-window grouped-query attention with optional causal masking.
  *
- * The registered profiles are D=128, Hq=32, Hkv=8 (group 4), window/cyclic capacity 2048,
- * 4096 or 8192, scale=1/sqrt(128), T=1..16, and B=1..8. q/out are contiguous BF16 [128,32,T,B],
+ * The registered profiles are D=128, Hq=32, Hkv=8 (group 4), logical window 2048,
+ * 4096 or 8192, scale=1/sqrt(128), T=1..16, and B=1..32. q/out are contiguous BF16 [128,32,T,B],
  * query_k/query_v are contiguous BF16 [128,8,T,B], positions is contiguous device I32 [T,B], and
  * Context K/V select dense [128,padded_capacity,8] fields with contiguous Device I64 [B]
  * byte offsets. Every selected field is 16-byte aligned. valid_columns is Device I32 [B].
@@ -31,7 +31,9 @@ struct SlidingWindowAttentionExecutionEnvelope {
  * i>=V are an inert physical tail and produce exact BF16 zero.
  *
  * The read-only cyclic BFloat16 context stores BF16 K and FP16 V for committed absolute positions
- * [max(0,L-window),L), with absolute position p stored at slot p mod window. Temporary query K/V is
+ * [max(0,L-window),L), with absolute position p stored at slot p mod capacity.
+ * A smaller registered ring capacity is allowed only when it covers envelope.max_context.
+ * Temporary query K/V is
  * a separate BF16 segment at [L,L+V). For live query position p_i, a populated context or
  * temporary key at p_j is visible
  * exactly when abs(p_j-p_i)<window, and, in causal mode, p_j<=p_i. Thus distance window-1

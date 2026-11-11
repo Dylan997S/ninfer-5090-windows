@@ -10,6 +10,7 @@ struct SlidingWindowAttentionPolicy {
     const std::int32_t* positions;
     int padded_context;
     int window_mask;
+    int ring_mask;
     bool causal;
 
     __device__ __forceinline__ int context_count(int value) const {
@@ -28,7 +29,7 @@ struct SlidingWindowAttentionPolicy {
 
     __device__ __forceinline__ std::int64_t context_index(std::int64_t tile, int d, int position,
                                                           int) const {
-        const int slot = position & (window_mask);
+        const int slot = position & ring_mask;
         return tile + d + static_cast<std::int64_t>(kContextQueryHeadDim) * slot;
     }
 
@@ -44,7 +45,8 @@ __launch_bounds__(WarpsPerCta * 32, 2) __global__
         const std::int32_t* __restrict__ valid_columns,
         const std::int64_t* __restrict__ key_offsets,
         const std::int64_t* __restrict__ value_offsets, const __nv_bfloat16* __restrict__ context_k,
-        const __half* __restrict__ context_v, int padded_context, int window_mask, int max_context,
+        const __half* __restrict__ context_v, int padded_context, int window_mask, int ring_mask,
+        int max_context,
         bool causal, int split_capacity, float scale, float* __restrict__ partial_acc,
         float* __restrict__ partial_m, float* __restrict__ partial_l,
         __nv_bfloat16* __restrict__ out) {
@@ -58,6 +60,7 @@ __launch_bounds__(WarpsPerCta * 32, 2) __global__
         .positions      = batch_positions,
         .padded_context = padded_context,
         .window_mask    = window_mask,
+        .ring_mask      = ring_mask,
         .causal         = causal,
     };
     context_query_split_partial_body<SlidingWindowAttentionPolicy, Tokens, WarpsPerCta, KeyBlock,

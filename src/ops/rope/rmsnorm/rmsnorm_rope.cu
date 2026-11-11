@@ -27,7 +27,7 @@ void launch_fixed(const Tensor& positions, const Tensor* q_norm_weight, const Te
 constexpr std::int32_t kHeadDim       = 128;
 constexpr std::int32_t kQueryHeads    = 32;
 constexpr std::int32_t kKeyHeads      = 8;
-constexpr std::int32_t kMaximumBatch  = 8;
+constexpr std::int32_t kMaximumBatch  = 32;
 constexpr std::int32_t kMaximumSingle = 2048;
 
 void require_tensor(const Tensor& tensor, DType dtype, const std::array<std::int32_t, 4>& shape,
@@ -75,7 +75,7 @@ void rmsnorm_rope(const Tensor& positions, const Tensor& q_norm_weight, const Te
     const std::int32_t width = q.ne[2];
     if (width < 2 || width > 16) throw std::invalid_argument("rmsnorm_rope: pair W must be 2..16");
     if (batch < 1 || batch > kMaximumBatch) {
-        throw std::invalid_argument("rmsnorm_rope: pair B must be 1..8");
+        throw std::invalid_argument("rmsnorm_rope: pair B must be 1..32");
     }
     require_tensor(q, DType::BF16, {kHeadDim, kQueryHeads, width, batch}, "q", execution.device());
     require_tensor(k, DType::BF16, {kHeadDim, kKeyHeads, width, batch}, "k", execution.device());

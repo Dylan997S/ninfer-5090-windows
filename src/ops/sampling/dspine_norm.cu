@@ -38,9 +38,9 @@ void dspine_post_write_norm(const Tensor& raw, const Tensor& norm, float eps, Te
                             CudaExecutionView execution) {
     constexpr const char* op = "DSpine post-write norm";
     const int rows           = raw.ne[1];
-    if (rows < 2 || rows > 128 || !std::isfinite(eps) || eps <= 0)
+    if (rows < 2 || rows > 512 || !std::isfinite(eps) || eps <= 0)
         throw std::invalid_argument(
-            "DSpine post-write norm requires 2..128 rows and positive epsilon");
+            "DSpine post-write norm requires 2..512 rows and positive epsilon");
     const auto device = execution.device();
     common::operand::tensor(raw, DType::BF16, {Hidden, rows}, 2, op, "raw", device);
     common::operand::tensor(norm, DType::BF16, {Hidden}, 2, op, "norm", device);

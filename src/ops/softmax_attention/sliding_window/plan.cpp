@@ -11,9 +11,9 @@ select_sliding_window_attention_plan(std::uint32_t window, std::int32_t tokens, 
     if (!supported_sliding_window(window)) {
         throw std::invalid_argument("sliding_window_attention plan: unsupported window");
     }
-    if (tokens < 1 || tokens > 16 || batch < 1 || batch > 8) {
+    if (tokens < 1 || tokens > 16 || batch < 1 || batch > 32) {
         throw std::invalid_argument(
-            "sliding_window_attention plan: T must be 1..16 and B must be 1..8");
+            "sliding_window_attention plan: T must be 1..16 and B must be 1..32");
     }
     if (envelope.min_context > envelope.max_context) {
         throw std::invalid_argument("sliding_window_attention plan: invalid envelope");

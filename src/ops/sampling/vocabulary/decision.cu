@@ -106,7 +106,7 @@ __global__ void accept_kernel(const unsigned long long* keys, int cap, int draft
 
 void check_keys(const Tensor& keys, const SamplingConfig* configs, const char* op, Device device) {
     if ((keys.ne[0] != 1 && keys.ne[0] != 20) || keys.ne[1] < 1 || keys.ne[1] > 16 ||
-        keys.ne[2] < 1 || keys.ne[2] > 8 || keys.ne[3] < 1 || keys.ne[3] > 16 || !configs ||
+        keys.ne[2] < 1 || keys.ne[2] > 32 || keys.ne[3] < 1 || keys.ne[3] > 16 || !configs ||
         !operand::aligned(configs, alignof(SamplingConfig)))
         throw std::invalid_argument(std::string(op) + ": invalid candidates/configs");
     operand::tensor(keys, DType::I64, {keys.ne[0], keys.ne[1], keys.ne[2], keys.ne[3]}, 8, op,

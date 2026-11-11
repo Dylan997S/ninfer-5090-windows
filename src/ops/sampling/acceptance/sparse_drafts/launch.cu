@@ -7,10 +7,12 @@ using namespace sampling_detail;
 using namespace common;
 
 namespace {
+constexpr int kGreedyRowsPerBlock = 8;
 __global__ __launch_bounds__(256) void speculative_accept_sparse_warp_greedy_kernel(
     const int* target_tokens, TokenRows drafts, const int* current_extents, int* licensed_tokens,
-    int* licensed_counts, int k) {
-    const int row    = threadIdx.x / 32;
+    int* licensed_counts, int k, int batch) {
+    const int row = static_cast<int>(blockIdx.x) * kGreedyRowsPerBlock + threadIdx.x / 32;
+    if (row >= batch) return;
     const int extent = min(k, max(0, current_extents[row]));
     speculative_sparse_warp_greedy(target_tokens, drafts, licensed_tokens, licensed_counts, row,
                                    extent, k);
@@ -26,10 +28,12 @@ void launch(const Tensor& target_tokens, const Tensor& logits, const Tensor& dra
     const std::int32_t k     = drafts.ne[0];
     const std::int32_t cols  = k + 1;
     if (plan.raw_greedy) {
-        speculative_accept_sparse_warp_greedy_kernel<<<1, 32 * batch, 0, stream>>>(
+        const int blocks = (batch + kGreedyRowsPerBlock - 1) / kGreedyRowsPerBlock;
+        const int threads = 32 * (batch < kGreedyRowsPerBlock ? batch : kGreedyRowsPerBlock);
+        speculative_accept_sparse_warp_greedy_kernel<<<blocks, threads, 0, stream>>>(
             static_cast<const int*>(target_tokens.data), token_rows(drafts),
             static_cast<const int*>(current_extents.data), static_cast<int*>(licensed_tokens.data),
-            static_cast<int*>(licensed_counts.data), k);
+            static_cast<int*>(licensed_counts.data), k, batch);
         CUDA_CHECK(cudaGetLastError());
         return;
     }

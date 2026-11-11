@@ -120,14 +120,14 @@ struct Cache {
 std::vector<double> oracle(const Cache& cache, int width, int batch, const std::vector<float>& q,
                            const std::vector<float>& qk, const std::vector<float>& qv,
                            const std::vector<int>& positions, const std::vector<int>& valid,
-                           const std::vector<int>& lanes, bool causal) {
+                           const std::vector<int>& lanes, bool causal, int logical_window) {
     std::vector<double> out(static_cast<std::size_t>(D) * Hq * width * batch, 0.0);
     parallel_rows(
         batch, std::uint64_t(batch) * width * cache.window * D * Hq, [&](int first, int last) {
             for (int b = first; b < last; ++b) {
                 if (valid[b] == 0) continue;
                 const int length        = positions[b * width];
-                const int start         = std::max(0, length - cache.window);
+                const int start         = std::max(0, length - logical_window);
                 const int context_count = length - start;
                 for (int token = 0; token < valid[b]; ++token) {
                     const int p = positions[b * width + token];
@@ -166,7 +166,7 @@ std::vector<double> oracle(const Cache& cache, int width, int batch, const std::
                             const int kp = key < context_count
                                                ? start + key
                                                : positions[b * width + key - context_count];
-                            return std::abs(static_cast<std::int64_t>(kp) - p) < cache.window &&
+                            return std::abs(static_cast<std::int64_t>(kp) - p) < logical_window &&
                                    (!causal || kp <= p);
                         },
                         [&](int d, int h, int, double value) {
@@ -182,7 +182,8 @@ std::vector<double> oracle(const Cache& cache, int width, int batch, const std::
 enum class Prefix { Full, Mixed, Zero };
 
 int run_case(Cache& cache, int width, int batch, int base_context, int envelope_max, Prefix prefix,
-             bool replay, bool causal) {
+             bool replay, bool causal, int logical_window = 0) {
+    if (logical_window == 0) logical_window = cache.window;
     const std::size_t q_count  = static_cast<std::size_t>(D) * Hq * width * batch;
     const std::size_t kv_count = static_cast<std::size_t>(D) * Hkv * width * batch;
     std::vector<float> q(q_count), qk(kv_count), qv(kv_count);
@@ -219,7 +220,7 @@ int run_case(Cache& cache, int width, int batch, int base_context, int envelope_
     const ops::SlidingWindowAttentionExecutionEnvelope envelope{
         0, static_cast<std::uint32_t>(envelope_max)};
     const auto capacity = ops::sliding_window_attention_workspace_capacity_bytes(
-        Geometry, cache.window, envelope, width, width, batch);
+        Geometry, logical_window, envelope, width, width, batch);
     GuardedDeviceBuffer scratch(std::max<std::size_t>(capacity, 1));
     MemoryArena workspace(scratch.span().subspan(0, std::max<std::size_t>(capacity, 1)));
     GuardedDeviceBuffer dq(q_count * 2), dk(kv_count * 2), dv(kv_count * 2),
@@ -233,7 +234,7 @@ int run_case(Cache& cache, int width, int batch, int base_context, int envelope_
     auto context = cache.view(tlane);
     DeviceContext device;
     const auto launch = [&] {
-        ops::sliding_window_attention(tq, tk, tv, tp, tvalid, Geometry, cache.window, Scale,
+        ops::sliding_window_attention(tq, tk, tv, tp, tvalid, Geometry, logical_window, Scale,
                                       context, envelope, workspace, to, device.execution_view(),
                                       causal);
     };
@@ -288,7 +289,7 @@ int run_case(Cache& cache, int width, int batch, int base_context, int envelope_
             launch();
         cuda_synchronize(device.stream());
         const auto expected =
-            oracle(cache, width, batch, q, qk, value, positions, valid, lanes, causal);
+            oracle(cache, width, batch, q, qk, value, positions, valid, lanes, causal, logical_window);
         const std::string label = "SWA window=" + std::to_string(cache.window) +
                                   " W=" + std::to_string(width) + " B=" + std::to_string(batch) +
                                   " L=" + std::to_string(base_context) +
@@ -426,6 +427,11 @@ int main(int argc, char** argv) {
             return failures + cache.verify();
         });
     }
+    suite.add("swa/compact-ring-4096/logical-8192", [] {
+        Cache cache(4096);
+        const auto result = run_case(cache, 12, 2, 2288, 2304, Prefix::Mixed, true, true, 8192);
+        return result + cache.verify();
+    });
     suite.add("swa/capacity", [] {
         int failures = 0;
         for (int batch = 1; batch <= 8; ++batch) {

@@ -93,8 +93,8 @@ void dspine_table_greedy_path(const Tensor& raw, const Tensor& rms, const Tensor
                               CudaExecutionView execution) {
     constexpr const char* op = "DSpine table";
     const int rows           = raw.ne[1];
-    if (width < 2 || width > 16 || rows < width || rows > width * 8 || rows % width)
-        throw std::invalid_argument("DSpine table requires 2..16-token blocks and 1..8 requests");
+    if (width < 2 || width > 16 || rows < width || rows > width * 32 || rows % width)
+        throw std::invalid_argument("DSpine table requires 2..16-token blocks and 1..32 requests");
     const int batch     = rows / width;
     const int positions = batch * (width - 1);
     const auto device   = execution.device();

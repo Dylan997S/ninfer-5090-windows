@@ -205,8 +205,11 @@ int main(int argc, char** argv) {
     suite.add("dspine/table/w8_b8", [] { return table_case(8, 8); });
     suite.add("dspine/table/w16_b1", [] { return table_case(16, 1); });
     suite.add("dspine/table/w16_b8", [] { return table_case(16, 8); });
+    suite.add("dspine/table/w12_b16", [] { return table_case(12, 16); });
+    suite.add("dspine/table/w12_b32", [] { return table_case(12, 32); });
     suite.add("dspine/post_write_norm/rows2", [] { return post_write_norm_case(2); });
     suite.add("dspine/post_write_norm/rows16", [] { return post_write_norm_case(16); });
     suite.add("dspine/post_write_norm/rows128", [] { return post_write_norm_case(128); });
+    suite.add("dspine/post_write_norm/rows384", [] { return post_write_norm_case(384); });
     return suite.main(argc, argv);
 }
