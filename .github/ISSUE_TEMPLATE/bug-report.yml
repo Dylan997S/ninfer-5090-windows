@@ -1,0 +1,48 @@
+name: Bug report
+description: Report a crash, setup problem, or API compatibility issue.
+title: "[Bug] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This issue is public. Remove API keys, authorization headers, private prompts, and other sensitive data before posting.
+  - type: input
+    id: version
+    attributes:
+      label: NInfer DSpine release or commit
+      placeholder: v1.2.5-dspine.3
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: OS, GPU, and NVIDIA driver version
+      placeholder: Windows 11 24H2, RTX 5090, driver 616.92
+    validations:
+      required: true
+  - type: input
+    id: client
+    attributes:
+      label: Client name and version
+      description: For API issues, include the client version and endpoint path.
+      placeholder: Client 1.2.3, POST /v1/responses
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce
+      description: Include the model or artifact, relevant startup flags, and what you expected to happen.
+    validations:
+      required: true
+  - type: textarea
+    id: request
+    attributes:
+      label: Sanitized request JSON
+      description: For API issues, include the smallest failing request body.
+      render: json
+  - type: textarea
+    id: error
+    attributes:
+      label: Actual result and error
+      description: Include the HTTP status and full sanitized response body for API issues, or the relevant server logs for startup and runtime issues.
+    validations:
+      required: true
