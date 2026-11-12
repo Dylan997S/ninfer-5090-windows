@@ -42,7 +42,10 @@ $env:NINFER_CUDA_SYNC = 'blocking'
 
 The [benchmark guide](https://github.com/Dylan997S/ninfer-5090-windows/blob/v1.2.5-dspine.3/bench/dspine-5090.md)
 reproduces the 32-request Python test with a 2,304-token context and 2,048 output tokens
-per request. Linux validation is pending a matched-workload retest.
+per request. Linux matched-workload results are documented in the Linux guide.
+
+The v1.2.5-dspine.5 packages also support encrypted reasoning replay, automatic history
+truncation and process-local background Responses. See the [Responses compatibility guide](https://github.com/Dylan997S/ninfer-dspine-rtx5090/blob/v1.2.5-dspine.5/docs/responses-compatibility.md).
 
 ## Convert a model / 转换模型
 

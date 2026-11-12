@@ -218,7 +218,9 @@ HttpServer::HttpServer(product::ServeOptions options, std::shared_ptr<spdlog::lo
                                                             options_.response_store_max_bytes),
       operational_log_(logger),
       request_jsonl_(observations_.instance_id(), options_.launch.logging.request_jsonl.string(),
-                     options_.launch.engine.artifact_path.string(), std::move(logger)) {
+                     options_.launch.engine.artifact_path.string(), std::move(logger)),
+      background_responses_(options_.response_store_max_records, options_.response_store_max_bytes,
+                            options_.launch.engine.max_concurrency) {
     request_jsonl_.write_startup_config(options_);
     const std::size_t queued_requests =
         static_cast<std::size_t>(options_.launch.engine.max_concurrency) +
@@ -571,10 +573,12 @@ bool HttpServer::listen() {
     }
     try {
         const bool result = server_.listen_after_bind();
+        background_responses_.stop();
         observations_.stop();
         stop_stats_reporter();
         return result;
     } catch (...) {
+        background_responses_.stop();
         observations_.stop();
         stop_stats_reporter();
         throw;

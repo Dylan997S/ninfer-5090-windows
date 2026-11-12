@@ -22,8 +22,16 @@ add_library(ninfer_serve STATIC
   metrics.cpp
   http_server.cpp
   openai_responses_http.cpp
+  responses_crypto.cpp
+  responses_background.cpp
 )
 ninfer_internal_includes(ninfer_serve)
 target_link_libraries(ninfer_serve
   PUBLIC ninfer_engine Threads::Threads ninfer::json ninfer::httplib ninfer_product_config
   PRIVATE ninfer_media_acquire ninfer_product_logging ninfer_grammar CUDA::cudart)
+if(WIN32)
+  target_link_libraries(ninfer_serve PRIVATE bcrypt)
+else()
+  find_package(OpenSSL REQUIRED COMPONENTS Crypto)
+  target_link_libraries(ninfer_serve PRIVATE OpenSSL::Crypto)
+endif()

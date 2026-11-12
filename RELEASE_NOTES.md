@@ -1,5 +1,14 @@
 # NInfer Windows v1.2.5 (RTX 5090)
 
+## NInfer DSpine v1.2.5-dspine.5 — Windows and Linux Responses fixes
+
+- Added authenticated `reasoning.encrypted_content` output and stateless replay, including nullable reasoning content from SDK serializers.
+- Added `truncation: "auto"` with complete-round removal, preserved instructions and tool-call groups, consistent input-token counting and truncated continuation history.
+- Added process-local `background: true`, polling, queued/active cancellation, deletion and resumable SSE after client disconnects.
+- Added Linux OpenSSL dependencies and a shared portable-package integration test. Windows 11 and Ubuntu 24.04 WSL2 each passed 28 HTTP/SDK cases and three host-side unit suites on one RTX 5090.
+- Encrypted reasoning keys and background state are process-local. Native Linux and container execution are untested. See [Responses compatibility](docs/responses-compatibility.md) for limits and reproduction.
+
+
 ## What changed in 1.2.5
 
 A major feature, stability, and upstream synchronization release following `v1.2.4`, incorporating 11 upstream commits from `Neroued/ninfer@dev` (`5b834fc35`..`a754fcf3b`) alongside native Windows port hardening:

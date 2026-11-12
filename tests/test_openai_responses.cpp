@@ -4,6 +4,7 @@
 
 #include "serve/generation_service.h"
 #include "serve/openai_responses.h"
+#include "serve/responses_crypto.h"
 #include "serve/translate.h"
 #include "serve_tool_stream_fixture.h"
 
@@ -828,10 +829,8 @@ int test_explicit_rejections() {
 
     value               = base;
     value["background"] = true;
-    failures += check(api_code([&] {
-                          (void)parse_openai_responses_create_request(value, limits());
-                      }) == "background_not_supported",
-                      "background execution is rejected explicitly");
+    failures += check(parse_openai_responses_create_request(value, limits()).background,
+                      "background execution is selected");
 
     value                 = base;
     value["conversation"] = "conv_1";
@@ -842,10 +841,27 @@ int test_explicit_rejections() {
 
     value               = base;
     value["truncation"] = "auto";
-    failures += check(api_code([&] {
-                          (void)parse_openai_responses_create_request(value, limits());
-                      }) == "truncation_not_supported",
-                      "lossy server truncation is rejected explicitly");
+    failures += check(parse_openai_responses_create_request(value, limits()).prompt.truncate_auto,
+                      "automatic truncation is selected");
+    value["truncation"] = "unknown";
+    failures += check(api_error([&] { (void)parse_openai_responses_create_request(value, limits()); }).param == "truncation", "invalid truncation is rejected");
+    const std::string secret = "private reasoning with UTF8 \xc3\xa9";
+    const auto encrypted = encrypt_response_reasoning(secret);
+    failures += check(decrypt_response_reasoning(encrypted) == secret, "reasoning encryption round trip");
+    auto tampered = encrypted;
+    tampered.back() = tampered.back() == '0' ? '1' : '0';
+    failures += check(api_code([&] { (void)decrypt_response_reasoning(tampered); }) == "invalid_encrypted_content", "tampered reasoning is rejected");
+    value = base;
+    value["input"] = Json::array({Json{{"role", "user"}, {"content", "hello"}},
+        Json{{"type", "reasoning"}, {"encrypted_content", encrypted}, {"summary", Json::array()}}});
+    value["include"] = Json::array({"reasoning.encrypted_content"});
+    auto parsed = parse_openai_responses_create_request(value, limits());
+    failures += check(parsed.encrypted_reasoning && parsed.prompt.input_turns.back().reasoning_content == secret,
+                      "encrypted-only reasoning reconstructs context");
+    value["input"][1]["content"] = nullptr;
+    parsed = parse_openai_responses_create_request(value, limits());
+    failures += check(parsed.prompt.input_turns.back().reasoning_content == secret,
+                      "encrypted reasoning accepts nullable content from SDK serializers");
 
     value                  = base;
     value["made_up_field"] = 1;

@@ -1,4 +1,5 @@
 #include "serve/openai_responses.h"
+#include "serve/responses_crypto.h"
 #include "product/constraint_observation.h"
 
 #include "serve/generation_service.h"
@@ -35,6 +36,7 @@ std::string response_status(ninfer::FinishReason reason) {
 
 struct ItemIds {
     std::string reasoning;
+    std::string encrypted_reasoning;
     std::string message;
     std::vector<std::string> function_calls;
     std::vector<std::string> call_ids;
@@ -97,7 +99,7 @@ Json response_common(const std::string& id, std::int64_t created_at,
         {"id", id},
         {"object", "response"},
         {"created_at", created_at},
-        {"background", false},
+        {"background", request.background},
         {"instructions",
          request.prompt.instructions ? Json(*request.prompt.instructions) : Json(nullptr)},
         {"max_output_tokens", request.requested_max_output_tokens
@@ -119,7 +121,7 @@ Json response_common(const std::string& id, std::int64_t created_at,
         {"tools", request.tools},
         {"top_logprobs", 0},
         {"top_p", runtime.top_p},
-        {"truncation", "disabled"}};
+        {"truncation", request.prompt.truncate_auto ? "auto" : "disabled"}};
 }
 
 bool needs_message_item(const GenerationOutcome& outcome, const std::string& status) {
@@ -143,6 +145,9 @@ BuiltOpenAIResponse build_response(const std::string& id, std::int64_t created_a
                                            : item_status.c_str();
         built.output_items.push_back(reasoning_item(
             ids.reasoning, reasoning_status, Json::array({reasoning_part(outcome.reasoning)})));
+        if (request.encrypted_reasoning)
+            built.output_items.back()["encrypted_content"] = ids.encrypted_reasoning.empty()
+                ? encrypt_response_reasoning(outcome.reasoning) : ids.encrypted_reasoning;
     }
 
     if (needs_message_item(outcome, status)) {
@@ -280,7 +285,11 @@ public:
         reasoning_status = item_status;
         reasoning_text   = final_text;
         const Json part  = reasoning_part(reasoning_text);
-        const Json item  = reasoning_item(ids.reasoning, item_status, Json::array({part}));
+        Json item = reasoning_item(ids.reasoning, item_status, Json::array({part}));
+        if (request.encrypted_reasoning) {
+            ids.encrypted_reasoning = encrypt_response_reasoning(reasoning_text);
+            item["encrypted_content"] = ids.encrypted_reasoning;
+        }
         return {sse(event("response.reasoning_text.done", Json{{"item_id", ids.reasoning},
                                                                {"output_index", reasoning_index},
                                                                {"content_index", 0},
@@ -391,7 +400,9 @@ std::vector<std::string> OpenAIResponsesEventStream::start() {
     impl_->started = true;
     const Json response =
         in_progress_response(impl_->id, impl_->created_at, impl_->request, impl_->runtime);
-    return {sse(impl_->event("response.created", Json{{"response", response}})),
+    Json created_response = response;
+    if (impl_->request.background) created_response["status"] = "queued";
+    return {sse(impl_->event("response.created", Json{{"response", created_response}})),
             sse(impl_->event("response.in_progress", Json{{"response", response}}))};
 }
 

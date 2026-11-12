@@ -503,9 +503,9 @@ promise their wall-clock residency; physical retention follows the resource sche
 
 NInfer implements the typed-Item and semantic-event core of the OpenAI
 [Responses API](https://developers.openai.com/api/reference/resources/responses/overview). All
-supported model instances use this same adapter and Engine route. It is intentionally not
-advertised as full parity with OpenAI-hosted tools, durable cloud storage, background jobs,
-Conversations, or compaction.
+supported model instances use this same adapter and Engine route. Process-local background
+execution, polling, cancellation and event recovery are supported. Hosted tools, durable cloud
+storage, Conversations and compaction require separate implementations.
 
 ### Create a Response
 
@@ -562,11 +562,11 @@ wire response contains typed `output` Items.
 | `tool_choice` | `auto`, `none`, `required`, a named function, or function-only `allowed_tools` with mode `auto`/`required`; namespaced selection carries both `namespace` and `name` |
 | `parallel_tool_calls` | `true` by default; `false` enforces at most one call |
 | `max_tool_calls` | non-negative integer accepted as a hosted-tool no-op; NInfer does not execute hosted tools |
-| `truncation` | omitted or `disabled`; overlong input fails instead of silently dropping Items |
+| `truncation` | `disabled` by default, or `auto` to remove oldest complete conversation rounds while preserving instructions, the latest user round and tool-call groups |
 | `top_logprobs` | omitted or `0` |
 | `service_tier` | omitted, `auto`, or `default`; the response reports `default` |
-| `background` | omitted or `false` |
-| `include` | omitted or an empty array |
+| `background` | `false` by default, or `true` for bounded process-local asynchronous execution |
+| `include` | accepts `reasoning.encrypted_content` for authenticated process-local reasoning replay |
 | `stream_options.include_obfuscation` | optional boolean; accepted as a transport hint, but this local server emits no padding |
 | cache and client hints | `prompt_cache_key`, `prompt_cache_options`, `prompt_cache_retention`, and explicit breakpoints follow [OpenAI prompt caching](#openai-prompt-caching); `safety_identifier` and `user` are accepted as client hints |
 
@@ -585,7 +585,7 @@ String `input` is normalized to one user `message` with an `input_text` part. Ar
 | `refusal` | assistant-message replay part; its text enters assistant history |
 | `input_image` | user- or assistant-message part with HTTP(S) or data-URI `image_url`; detail omitted or `auto`; requires server `--vision` |
 | `input_video` | NInfer extension with HTTP(S) or data-URI `video_url`; requires server `--vision` |
-| `reasoning` | raw replay Item with `reasoning_text` content; summary/encrypted metadata may accompany raw text but cannot replace it |
+| `reasoning` | raw `reasoning_text` content or a valid `encrypted_content` envelope produced by this server process, with optional null/omitted content |
 | `function_call` | completed assistant call with optional `id` and namespace, plus required `call_id`, `name`, and JSON-object string `arguments` |
 | `function_call_output` | completed result with required `call_id` and optional matching name/namespace assertion; `output` may be a string or a non-empty array of `input_text`/`input_image` parts |
 
@@ -608,8 +608,8 @@ An `input_text`, `input_image`, or tool-result part may carry
 [OpenAI prompt caching](#openai-prompt-caching); boundaries affect reuse opportunities, not prompt
 identity or output semantics. String message status/phase metadata is accepted but does not alter the model prompt.
 
-`input_file`, `input_audio`, image `file_id`, non-`auto` image detail, reasoning metadata without raw
-reasoning text, partial tool Items, and other Item/content types are not supported. HTTP media URLs
+`input_file`, `input_audio`, image `file_id`, non-`auto` image detail, summary-only reasoning without
+a valid local encrypted envelope, partial tool Items, and other Item/content types are unsupported. HTTP media URLs
 stored in a response chain are fetched again when that chain is continued; use data URIs when the
 historical media bytes must be immutable.
 
@@ -746,14 +746,16 @@ Resource behavior:
 
 | Endpoint | Contract |
 |---|---|
-| `GET /v1/responses/{id}` | returns the stored terminal object, or 404 `response_not_found`; stream recovery and non-empty `include` are rejected rather than ignored |
-| `DELETE /v1/responses/{id}` | removes public retrieval and returns `response.deleted`; descendant contexts already retained by other Responses remain usable |
+| `GET /v1/responses/{id}` | retrieves a stored Response or polls a retained background job. JSON retrieval accepts `include=reasoning.encrypted_content`. Background streams created with `stream:true` support `stream=true&starting_after=N` |
+| `DELETE /v1/responses/{id}` | cancels active background work, removes public retrieval and returns `response.deleted`. Descendant contexts already retained by other Responses remain usable |
 | `GET /v1/responses/{id}/input_items` | returns normalized Items supplied to that request; supports `after`, `limit` `1..100` (default `20`), and `order` `asc|desc` (default `desc`); image URLs are redacted unless `include=message.input_image.image_url` |
-| `POST /v1/responses/{id}/cancel` | explicitly fails because background execution is unsupported |
+| `POST /v1/responses/{id}/cancel` | cancels a queued or active background Response and returns its final object. Repeated cancellation returns the settled object |
 | `POST /v1/responses/compact` | explicitly fails with `compaction_not_supported` |
 
-`store:false` Responses cannot be retrieved or used as `previous_response_id`. LRU eviction and
-explicit deletion also make an ID unavailable. A single Response larger than the configured store
+Foreground `store:false` Responses cannot be retrieved or used as `previous_response_id`.
+Background `store:false` jobs remain temporarily available for polling, cancellation and stream
+recovery, within the bounded background registry. They do not create continuation history.
+LRU eviction and explicit deletion also make an ID unavailable. A single Response larger than the configured store
 capacity fails with `response_store_capacity_exceeded` rather than silently pretending it was
 stored.
 
@@ -776,9 +778,11 @@ curl http://127.0.0.1:8080/v1/responses/input_tokens \
 ```
 
 Unsupported Create fields include Conversations, prompt templates, context management, hosted
-moderation, non-empty `include`, background execution, compaction,
-files/audio, and OpenAI-hosted/MCP/custom tools. These are compatibility boundaries, not silently
-accepted placeholders.
+moderation, include values other than `reasoning.encrypted_content`, compaction, files/audio,
+and OpenAI-hosted/MCP/custom tools. These return explicit errors.
+
+See [Responses compatibility](responses-compatibility.md) for encryption-key lifetime, background
+retention limits and portable-package validation instructions.
 
 ## Anthropic Messages
 

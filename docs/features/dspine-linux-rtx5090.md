@@ -9,7 +9,7 @@ for the pinned model and conversion commands.
 Use Linux x86-64, an NVIDIA driver compatible with CUDA 13.4, CMake 3.28 or later,
 Ninja, and a CUDA-compatible C++20 compiler. On Ubuntu 24.04 the system development
 dependencies are `pkg-config`, `libhwloc-dev`, `liburing-dev`, `libjpeg-dev`,
-`libavformat-dev`, `libavcodec-dev`, `libavutil-dev`, and `libswscale-dev`.
+`libavformat-dev`, `libavcodec-dev`, `libavutil-dev`, `libswscale-dev`, and `libssl-dev`.
 `libcurl4-openssl-dev` enables remote HTTP media acquisition.
 
 ```bash
@@ -29,7 +29,7 @@ The launcher defaults to one active request, 8,192 context tokens, FP8 KV, and a
 `/usr/local/cuda`. The loopback endpoint is `http://127.0.0.1:18092/v1`.
 On Ubuntu 24.04, the package expects the system libraries `libhwloc15`, `liburing2`,
 `libjpeg-turbo8`, `libavformat60`, `libavcodec60`, `libavutil58`, `libswscale7`,
-and `libcurl4t64`, plus the compatible CUDA runtime and driver.
+`libcurl4t64`, and `libssl3t64`, plus the compatible CUDA runtime and driver.
 
 Enable 32 active lanes with automatic Device context capacity and a 128-token prefill chunk.
 

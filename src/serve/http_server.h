@@ -4,6 +4,8 @@
 #include "serve/metrics.h"
 #include "serve/operational_log.h"
 #include "serve/openai_responses_store.h"
+#include "serve/responses_background.h"
+#include "serve/openai_responses.h"
 #include "serve/request_log.h"
 #include "product/config/options.h"
 
@@ -81,6 +83,11 @@ private:
     void handle_messages(const httplib::Request& req, httplib::Response& res);
     void handle_count_tokens(const httplib::Request& req, httplib::Response& res);
     void handle_responses(const httplib::Request& req, httplib::Response& res);
+    void handle_background_response(const httplib::Request& req, httplib::Response& res,
+        OpenAIResponsesCreateRequest request, OpenAIResponsesResolvedPrompt resolved, std::string id);
+    void stream_background_response(httplib::Response& res, std::shared_ptr<BackgroundResponse> job, std::int64_t after);
+    void truncate_response_prompt(OpenAIResponsesPromptRequest& request, OpenAIResponsesResolvedPrompt& resolved,
+        int output_reserve, const std::function<bool()>& cancelled);
     void handle_response_input_tokens(const httplib::Request& req, httplib::Response& res);
     void handle_response_get(const httplib::Request& req, httplib::Response& res);
     void handle_response_delete(const httplib::Request& req, httplib::Response& res);
@@ -117,6 +124,7 @@ private:
     std::condition_variable stats_cv_;
     std::thread stats_thread_;
     bool stats_stopping_ = false;
+    BackgroundResponses background_responses_;
 };
 
 } // namespace ninfer::serve

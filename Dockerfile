@@ -12,6 +12,7 @@ RUN apt-get update \
         libcurl4-openssl-dev \
         libhwloc-dev \
         libjpeg-dev \
+        libssl-dev \
         libswscale-dev \
         liburing-dev \
         ninja-build \
@@ -43,6 +44,7 @@ RUN apt-get update \
         libcurl4t64 \
         libhwloc15 \
         libjpeg-turbo8 \
+        libssl3t64 \
         libswscale7 \
         liburing2 \
     && rm -rf /var/lib/apt/lists/*

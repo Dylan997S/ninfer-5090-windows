@@ -1,9 +1,10 @@
 # NInfer DSpine for RTX 5090
 
-A Windows inference distribution for **Qwen3.8-27B NVFP4 on one RTX 5090**.
+A Windows and Linux inference distribution for **Qwen3.8-27B NVFP4 on one RTX 5090**.
 It integrates DSpine for high-concurrency code generation with reproducible throughput tests.
 
-- [Windows portable release](https://github.com/Dylan997S/ninfer-5090-windows/releases/tag/v1.2.5-dspine.3)
+- [Windows and Linux portable release](https://github.com/Dylan997S/ninfer-dspine-rtx5090/releases/tag/v1.2.5-dspine.5)
+- [/v1/responses fixes and validation](docs/responses-compatibility.md)
 - [Model conversion and startup](tools/release/dspine-portable/START-HERE.md)
 - [Reproduce the 32-request benchmark](bench/dspine-5090.md)
 - [Linux build and WSL2 verification](docs/features/dspine-linux-rtx5090.md)

@@ -1,4 +1,5 @@
 #include "serve/openai_responses.h"
+#include "serve/responses_crypto.h"
 #include "serve/openai_common.h"
 #include "serve/request_validation.h"
 
@@ -335,13 +336,16 @@ std::string parse_reasoning_item(const Json& item, Json& canonical) {
         !item.at("summary").is_array()) {
         bad_request("reasoning summary must be an array", "input");
     }
-    if (!item.contains("content") || !item.at("content").is_array()) {
-        bad_request("reasoning Item must contain a content array", "input");
+    const bool has_content = item.contains("content") && !item.at("content").is_null();
+    if (has_content && !item.at("content").is_array()) {
+        bad_request("reasoning content must be an array", "input");
     }
-
+    if (!has_content && !has_encrypted)
+        bad_request("reasoning Item requires content or encrypted_content", "input");
+    const Json parts = has_content ? item.at("content") : Json::array();
     std::string text;
     Json content = Json::array();
-    for (const Json& part : item.at("content")) {
+    for (const Json& part : parts) {
         if (!part.is_object() || !part.contains("type") || !part.at("type").is_string() ||
             part.at("type").get<std::string>() != "reasoning_text" || !part.contains("text") ||
             !part.at("text").is_string()) {
@@ -349,6 +353,13 @@ std::string parse_reasoning_item(const Json& item, Json& canonical) {
         }
         text += part.at("text").get<std::string>();
         content.push_back(Json{{"type", "reasoning_text"}, {"text", part.at("text")}});
+    }
+    if (has_encrypted) {
+        const auto decrypted = decrypt_response_reasoning(item.at("encrypted_content").get<std::string>());
+        if (!text.empty() && text != decrypted)
+            bad_request("reasoning text does not match encrypted content", "input", "invalid_encrypted_content");
+        text = decrypted;
+        content = Json::array({Json{{"type", "reasoning_text"}, {"text", text}}});
     }
     if (text.empty() &&
         (has_encrypted || (item.contains("summary") && !item.at("summary").is_null() &&
@@ -992,15 +1003,14 @@ void parse_preserve_thinking(const Json& body, OpenAIResponsesPromptRequest& out
     out.generation.preserve_thinking = nested;
 }
 
-void parse_truncation(const Json& body) {
+void parse_truncation(const Json& body, OpenAIResponsesPromptRequest& out) {
     if (!body.contains("truncation") || body.at("truncation").is_null()) { return; }
     if (!body.at("truncation").is_string()) {
         bad_request("truncation must be a string", "truncation");
     }
-    if (body.at("truncation").get<std::string>() != "disabled") {
-        bad_request("truncation 'auto' would discard input Items and is not supported",
-                    "truncation", "truncation_not_supported");
-    }
+    const auto value = body.at("truncation").get<std::string>();
+    if (value != "disabled" && value != "auto") bad_request("truncation must be disabled or auto", "truncation");
+    out.truncate_auto = value == "auto";
 }
 
 ParsedPromptFields parse_prompt_fields(const Json& body, const RequestLimits& limits) {
@@ -1033,7 +1043,7 @@ ParsedPromptFields parse_prompt_fields(const Json& body, const RequestLimits& li
     out.prompt.generation.tool_choice.parallel &= out.parallel_tool_calls;
     parse_reasoning(body, out.prompt);
     parse_text(body, out.prompt.generation);
-    parse_truncation(body);
+    parse_truncation(body, out.prompt);
     parse_preserve_thinking(body, out.prompt);
     out.prompt.generation.max_tokens = limits.default_max_tokens;
     return out;
@@ -1174,17 +1184,14 @@ OpenAIResponsesCreateRequest parse_openai_responses_create_request(const Json& b
         if (!body.at("background").is_boolean()) {
             bad_request("background must be a boolean", "background");
         }
-        if (body.at("background").get<bool>()) {
-            bad_request("background execution is not supported", "background",
-                        "background_not_supported");
-        }
+        out.background = body.at("background").get<bool>();
     }
     if (body.contains("include") && !body.at("include").is_null()) {
         if (!body.at("include").is_array()) { bad_request("include must be an array", "include"); }
-        if (!body.at("include").empty()) {
-            bad_request("the requested additional response fields have no available response "
-                        "representation",
-                        "include", "include_not_supported");
+        for (const auto& value : body.at("include")) {
+            if (!value.is_string() || value != "reasoning.encrypted_content")
+                bad_request("unsupported include field", "include", "include_not_supported");
+            out.encrypted_reasoning = true;
         }
     }
     if (body.contains("stream_options") && !body.at("stream_options").is_null()) {

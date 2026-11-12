@@ -37,6 +37,7 @@ struct OpenAIResponsesPromptRequest {
     std::vector<nlohmann::json> input_items;
     std::optional<std::string> instructions;
     std::optional<std::string> previous_response_id;
+    bool truncate_auto = false;
 };
 
 struct OpenAIResponsesCreateRequest {
@@ -53,6 +54,8 @@ struct OpenAIResponsesCreateRequest {
     bool parallel_tool_calls = true;
     bool store               = true;
     bool stream              = false;
+    bool background          = false;
+    bool encrypted_reasoning = false;
 };
 
 struct OpenAIResponsesResolvedPrompt {

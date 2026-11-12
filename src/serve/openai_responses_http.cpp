@@ -3,6 +3,7 @@
 #include "serve/http_transport.h"
 #include "serve/openai_common.h"
 #include "serve/openai_responses.h"
+#include "serve/responses_crypto.h"
 #include "serve/request_validation.h"
 
 #include <nlohmann/json.hpp>
@@ -128,23 +129,6 @@ bool query_bool(const httplib::Request& request, const char* key, bool fallback)
     invalid_query(std::string(key) + " must be 'true' or 'false'", key);
 }
 
-void validate_retrieve_query(const httplib::Request& request) {
-    reject_unknown_query(request, {"include", "include_obfuscation", "starting_after", "stream"});
-    if (request.has_param("include") && !request.get_param_value("include").empty()) {
-        invalid_query("additional stored Response fields are not available", "include",
-                      "include_not_supported");
-    }
-    (void)query_bool(request, "include_obfuscation", true);
-    if (request.has_param("starting_after") && !request.get_param_value("starting_after").empty()) {
-        invalid_query("stream event recovery is not available for stored Responses",
-                      "starting_after", "stream_recovery_not_supported");
-    }
-    if (query_bool(request, "stream", false)) {
-        invalid_query("stored Response event streams are not retained", "stream",
-                      "retrieve_stream_not_supported");
-    }
-}
-
 void redact_input_image_urls(Json& item) {
     if (!item.is_object()) { return; }
     const auto redact_parts = [](Json& parts) {
@@ -247,8 +231,21 @@ void HttpServer::handle_responses(const httplib::Request& req, httplib::Response
         limits.default_max_tokens = options_.launch.generation.max_tokens;
         request = parse_openai_responses_create_request(parse_json_body(req), limits);
         validate_openai_model(request.prompt.model, public_model_id_);
+        if (request.prompt.previous_response_id) {
+            if (auto previous = background_responses_.get(*request.prompt.previous_response_id)) {
+                const auto status = previous->snapshot().value("status", "");
+                if (status == "queued" || status == "in_progress")
+                    bad_request("previous response is still running", "previous_response_id", "response_in_progress");
+            }
+        }
         resolved = resolve_openai_responses_prompt(request.prompt, openai_responses_store_, id,
                                                    request.store);
+        if (request.background) {
+            handle_background_response(req, res, std::move(request), std::move(resolved), id);
+            return;
+        }
+        truncate_response_prompt(request.prompt, resolved, request.requested_max_output_tokens.value_or(1),
+                                 [&req] { return client_disconnected(req); });
     } catch (const ApiException& exception) {
         write_openai_error(res, responses_error(exception.error()));
         return;
@@ -548,6 +545,7 @@ void HttpServer::handle_response_input_tokens(const httplib::Request& req, httpl
         validate_openai_model(request.model, public_model_id_);
         OpenAIResponsesResolvedPrompt resolved =
             resolve_openai_responses_prompt(request, openai_responses_store_, std::nullopt, false);
+        truncate_response_prompt(request, resolved, 0, [&req] { return client_disconnected(req); });
         const int tokens = service_->count_prompt_tokens(
             resolved.generation, [&req] { return client_disconnected(req); });
         res.set_content(make_openai_response_input_tokens_body(tokens), "application/json");
@@ -563,23 +561,53 @@ void HttpServer::handle_response_input_tokens(const httplib::Request& req, httpl
 
 void HttpServer::handle_response_get(const httplib::Request& req, httplib::Response& res) {
     try {
-        validate_retrieve_query(req);
-    } catch (const ApiException& exception) {
-        write_openai_error(res, exception.error());
-        return;
-    }
-    const std::string id                                     = path_response_id(req);
-    const std::shared_ptr<const StoredOpenAIResponse> stored = openai_responses_store_.get(id);
-    if (!stored) {
-        write_openai_error(res, response_not_found(id));
-        return;
-    }
-    res.set_content(stored->response.dump(), "application/json");
+        reject_unknown_query(req, {"include", "include[]", "include_obfuscation", "starting_after", "stream"});
+        for (const auto& [key, value] : req.params) {
+            if ((key == "include" || key == "include[]") && !value.empty() && value != "reasoning.encrypted_content")
+                invalid_query("unsupported include field", key, "include_not_supported");
+        }
+        (void)query_bool(req, "include_obfuscation", true);
+        const bool stream = query_bool(req, "stream", false);
+        std::int64_t after = -1;
+        if (req.has_param("starting_after")) {
+            const auto value = req.get_param_value("starting_after");
+            const auto result = std::from_chars(value.data(), value.data() + value.size(), after);
+            if (result.ec != std::errc{} || result.ptr != value.data() + value.size() || after < 0 || after == INT64_MAX)
+                invalid_query("starting_after must be a nonnegative sequence number", "starting_after");
+            if (!stream) invalid_query("starting_after requires stream=true", "starting_after");
+        }
+        const auto id = path_response_id(req);
+        const auto job = background_responses_.get(id);
+        if (stream) {
+            if (!job) invalid_query("stream events are no longer retained", "stream", "retrieve_stream_not_supported");
+            stream_background_response(res, job, after);
+            return;
+        }
+        const auto stored = openai_responses_store_.get(id);
+        if (!job && !stored) { write_openai_error(res, response_not_found(id)); return; }
+        auto response = job ? job->snapshot() : stored->response;
+        if (req.has_param("include") || req.has_param("include[]")) {
+            for (auto& item : response["output"]) {
+                if (item.value("type", "") != "reasoning" || item.contains("encrypted_content")) continue;
+                std::string text;
+                for (const auto& part : item.value("content", Json::array())) text += part.value("text", "");
+                item["encrypted_content"] = encrypt_response_reasoning(text);
+            }
+        }
+        res.set_content(response.dump(), "application/json");
+    } catch (const ApiException& error) { write_openai_error(res, error.error()); }
+      catch (const std::exception& error) { write_openai_error(res, internal_error(error)); }
 }
 
 void HttpServer::handle_response_delete(const httplib::Request& req, httplib::Response& res) {
     const std::string id = path_response_id(req);
-    if (!openai_responses_store_.erase(id)) {
+    if (auto job = background_responses_.get(id)) {
+        job->cancel();
+        std::unique_lock lock(job->mutex);
+        job->changed.wait(lock, [&] { return job->done; });
+    }
+    const bool removed_job = background_responses_.erase(id);
+    if (!openai_responses_store_.erase(id) && !removed_job) {
         write_openai_error(res, response_not_found(id));
         return;
     }
@@ -600,18 +628,22 @@ void HttpServer::handle_response_input_items(const httplib::Request& req, httpli
 }
 
 void HttpServer::handle_response_cancel(const httplib::Request& req, httplib::Response& res) {
-    const std::string id = path_response_id(req);
-    if (!openai_responses_store_.get(id)) {
-        write_openai_error(res, response_not_found(id));
+    const auto id = path_response_id(req);
+    auto job = background_responses_.get(id);
+    if (job) {
+        job->cancel();
+        std::unique_lock lock(job->mutex);
+        job->changed.wait(lock, [&] { return job->done; });
+        res.set_content(job->response.dump(), "application/json");
         return;
     }
-    ApiError error;
-    error.status  = 400;
-    error.type    = "invalid_request_error";
-    error.code    = "background_not_supported";
-    error.message = "only background responses can be cancelled; NInfer does not support "
-                    "background execution";
-    write_openai_error(res, error);
+    auto stored = openai_responses_store_.get(id);
+    if (!stored) { write_openai_error(res, response_not_found(id)); return; }
+    if (stored->response.value("background", false)) {
+        res.set_content(stored->response.dump(), "application/json");
+        return;
+    }
+    write_openai_error(res, ApiError{.status = 400, .message = "only background responses can be cancelled", .code = "response_not_background"});
 }
 
 void HttpServer::handle_response_compact(const httplib::Request&, httplib::Response& res) {
@@ -622,6 +654,164 @@ void HttpServer::handle_response_compact(const httplib::Request&, httplib::Respo
     error.code    = "compaction_not_supported";
     error.message = "Responses compaction is not supported";
     write_openai_error(res, error);
+}
+
+void HttpServer::truncate_response_prompt(OpenAIResponsesPromptRequest& request,
+    OpenAIResponsesResolvedPrompt& resolved, int output_reserve, const std::function<bool()>& cancelled) {
+    if (!request.truncate_auto) return;
+    const auto ceiling = static_cast<int>(service_->engine_options().max_context);
+    const auto fits = [&] {
+        try { return service_->count_prompt_tokens(resolved.generation, cancelled) <= ceiling - output_reserve; }
+        catch (const ApiException& error) {
+            if (error.error().code != "context_length_exceeded") throw;
+            return false;
+        }
+    };
+    auto& messages = resolved.generation.messages;
+    bool changed = false;
+    while (!fits()) {
+        auto first = std::find_if(messages.begin(), messages.end(), [](const auto& turn) {
+            return turn.role != ChatRole::System && turn.role != ChatRole::Developer;
+        });
+        auto next = first == messages.end() ? messages.end() : std::find_if(std::next(first), messages.end(), [](const auto& turn) {
+            return turn.role == ChatRole::User;
+        });
+        if (next == messages.end())
+            bad_request("latest user turn and instructions exceed the context budget", "input", "context_length_exceeded");
+        const auto kept = std::remove_if(first, next, [](const auto& turn) {
+            return turn.role != ChatRole::System && turn.role != ChatRole::Developer;
+        });
+        messages.erase(kept, next);
+        changed = true;
+    }
+    if (changed) {
+        // Persist precisely the context sent to the Engine, never resurrect discarded history.
+        resolved.parent.reset();
+        request.input_turns = messages;
+        if (request.instructions && !request.input_turns.empty()) request.input_turns.erase(request.input_turns.begin());
+        const bool update_session = resolved.cache_hints.update_session_index;
+        resolved.cache_hints = {};
+        resolved.cache_hints.session_key = resolved.session_key;
+        resolved.cache_hints.update_session_index = update_session;
+    }
+}
+
+void HttpServer::stream_background_response(httplib::Response& res,
+    std::shared_ptr<BackgroundResponse> job, std::int64_t after) {
+    if (!job->streaming) bad_request("response was created without stream=true", "stream", "retrieve_stream_not_supported");
+    prepare_sse_response(res);
+    auto cursor = std::make_shared<std::size_t>(static_cast<std::size_t>(after + 1));
+    res.set_chunked_content_provider("text/event-stream",
+        [job, cursor](std::size_t, httplib::DataSink& sink) {
+            for (;;) {
+                std::vector<std::string> batch;
+                bool done;
+                {
+                    std::unique_lock lock(job->mutex);
+                    job->changed.wait_for(lock, std::chrono::milliseconds(250), [&] { return job->done || *cursor < job->events.size(); });
+                    done = job->done;
+                    if (*cursor < job->events.size()) {
+                        batch.assign(job->events.begin() + *cursor, job->events.end());
+                        *cursor = job->events.size();
+                    }
+                }
+                for (const auto& event : batch) if (!sink.write(event.data(), event.size())) return false;
+                if (done) { sink.done(); return true; }
+                if (!sink.is_writable()) return false;
+            }
+        });
+}
+
+void HttpServer::handle_background_response(const httplib::Request& req, httplib::Response& res,
+    OpenAIResponsesCreateRequest request, OpenAIResponsesResolvedPrompt resolved, std::string id) {
+    const auto created = unix_time_now();
+    GenerationOutcome empty;
+    auto initial = make_openai_response_object(id, created, request, {}, empty).body;
+    initial["status"] = "queued";
+    initial["completed_at"] = nullptr;
+    initial["output"] = Json::array();
+    initial["usage"] = nullptr;
+    initial["temperature"] = request.prompt.generation.sampling.temperature
+        ? Json(*request.prompt.generation.sampling.temperature) : Json(nullptr);
+    initial["top_p"] = request.prompt.generation.sampling.top_p
+        ? Json(*request.prompt.generation.sampling.top_p) : Json(nullptr);
+    const auto req_id = ++request_seq_;
+    const RequestLogMetadata metadata{
+        .http_request_id = res.get_header_value("x-request-id"), .response_id = id,
+        .model = request.prompt.model, .stream = request.stream,
+        .output_tokens_explicit = request.requested_max_output_tokens.has_value(),
+        .preserve_thinking_semantic_change = resolved.preserve_thinking_semantic_change};
+    const bool streaming = request.stream;
+    auto job = background_responses_.submit(id, initial, streaming, req.body.size(),
+        [this, request = std::move(request), resolved = std::move(resolved), id, created, req_id, metadata]
+        (std::shared_ptr<BackgroundResponse> job) mutable {
+            std::shared_ptr<RequestLifecycle> lifecycle;
+            try {
+                const auto cancelled = [job] { return job->cancelled.load(); };
+                if (cancelled()) { job->fail("cancelled", "", ""); return; }
+                {
+                    std::lock_guard lock(job->mutex);
+                    job->response["status"] = "in_progress";
+                }
+                truncate_response_prompt(request.prompt, resolved, request.requested_max_output_tokens.value_or(1), cancelled);
+                observations_.preparing(req_id, "openai_responses", metadata);
+                auto prepared = service_->prepare(resolved.generation,
+                    request.stream ? GenerationConsumerMode::Streaming : GenerationConsumerMode::Aggregate,
+                    {.constraint_timings = true, .scheduling = scheduling_observer(req_id, metadata.http_request_id),
+                     .first_token = first_token_observer(req_id)}, cancelled, std::move(resolved.cache_hints));
+                {
+                    std::lock_guard lock(job->mutex);
+                    job->response["temperature"] = prepared.sampling.temperature;
+                    job->response["top_p"] = prepared.sampling.top_p;
+                }
+                lifecycle = begin_request(make_request_log_context(req_id, "openai_responses", resolved.generation, metadata, prepared));
+                resolved.generation.messages.clear();
+                std::unique_ptr<OpenAIResponsesEventStream> encoder;
+                StreamSink output;
+                if (request.stream) {
+                    encoder = std::make_unique<OpenAIResponsesEventStream>(id, created, request, runtime_values(prepared));
+                    auto start_events = encoder->start();
+                    start_events.erase(start_events.begin()); // response.created was sent at submission.
+                    job->append(start_events);
+                    output.on_reasoning = [&](const auto& text) { job->append(encoder->reasoning_delta(text)); };
+                    output.on_content = [&](const auto& text) { job->append(encoder->content_delta(text)); };
+                    output.on_tool_start = [&](const auto& event) { job->append(encoder->tool_start(event)); };
+                    output.on_tool_arguments = [&](const auto& event) { job->append(encoder->tool_arguments(event)); };
+                    output.on_tool_end = [&](const auto& event) { job->append(encoder->tool_end(event)); };
+                    output.is_cancelled = cancelled;
+                }
+                const auto outcome = service_->run(prepared, request.stream ? &output : nullptr, cancelled);
+                lifecycle->done(outcome);
+                BuiltOpenAIResponse response;
+                std::string terminal;
+                if (encoder) {
+                    auto finished = encoder->finish(outcome);
+                    job->append(finished.events_before_terminal);
+                    response = std::move(finished.response);
+                    terminal = encoder->terminal(response);
+                } else response = make_openai_response_object(id, created, request, runtime_values(prepared, &outcome), outcome);
+                PendingResponseStorage storage;
+                storage.input_turns = std::move(request.prompt.input_turns);
+                storage.input_items = std::move(request.prompt.input_items);
+                storage.previous_context = std::move(resolved.parent);
+                if (resolved.session_key) storage.session_key = *resolved.session_key;
+                storage.enabled = request.store;
+                // Validate the terminal envelope before making it retrievable as stored history.
+                if (response.body.dump().size() + terminal.size() + job->event_bytes > job->byte_limit)
+                    throw ApiException({.status = 507, .type = "server_error", .message = "background response capacity exceeded", .code = "response_buffer_capacity"});
+                commit_stored_response(openai_responses_store_, std::move(storage), id, response.body,
+                    std::move(response.output_history), prepared.preserve_thinking);
+                job->finish(std::move(response.body), std::move(terminal));
+            } catch (const ApiException& error) {
+                if (lifecycle) lifecycle->failure(make_generation_request_failure(error.error()));
+                job->fail(job->cancelled || error.error().status == 499 ? "cancelled" : "failed", error.what(), error.error().code);
+            } catch (const std::exception& error) {
+                if (lifecycle) lifecycle->failure(make_internal_request_failure(RequestFailurePhase::Generation, error.what()));
+                job->fail(job->cancelled ? "cancelled" : "failed", error.what(), "server_error");
+            }
+        });
+    if (streaming) stream_background_response(res, job, -1);
+    else res.set_content(initial.dump(), "application/json");
 }
 
 } // namespace ninfer::serve
